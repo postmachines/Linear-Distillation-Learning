@@ -5,7 +5,7 @@ from torch.nn import init
 import torch.optim as optim
 import torchvision
 
-from .data.utils import get_few_shot_mnist
+from data.utils import get_few_shot_mnist
 
 if torch.cuda.is_available():
     device = 'cuda'
@@ -85,17 +85,16 @@ def train(epoch, rnd, train_loader):
 def test(rnd, test_loader):
     rnd.eval()
     correct = 0
-    mses = []
     with torch.no_grad():
         for batch_i, (x, y)  in enumerate(test_loader):
             x = x.view(x.shape[0], -1)
             predict_next_state_feature, target_next_state_feature = rnd.predict(x.to(device))
+            mses = []
             for predict in predict_next_state_feature:
                 mses.append((target_next_state_feature - predict).pow(2).sum(1) / 2)
             class_min_mse = np.argmin(mses)
             if class_min_mse == y.item():
                 correct += 1
-            mses = []
         print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i+1, 100. * correct / (batch_i+1)))
 
 
@@ -118,10 +117,7 @@ if __name__ == "__main__":
     rnd = RNDModel(10)
     rnd.to(device)
 
-    # Optimizer and loss
-    params = []
-    for _, predictor in rnd.predictors.items():
-        params += list(predictor.parameters())
+    # Loss
     mse_loss = nn.MSELoss(reduction='none')
 
     # Dataset of 100 samples (10 per class)
