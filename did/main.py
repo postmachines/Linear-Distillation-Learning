@@ -100,7 +100,7 @@ def get_few_shot_mnist(shot=10):
         if class_counter[y.item()] < shot:
             class_counter[y.item()] += 1
             few_shot_dataset.append((x, y))
-        if all([class_counter.values() == shot]):
+        if all([x == shot for x in class_counter.values()]):
             break
     return few_shot_dataset
 
