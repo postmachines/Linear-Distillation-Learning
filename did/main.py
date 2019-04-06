@@ -20,10 +20,14 @@ class RNDModel(nn.Module):
         self.activated_predictor = None
         self.target = nn.Sequential(nn.Linear(dim, dim))
         self.predictors = {}
+        self.optimizers = {}
         for c in range(n_classes):
             self.predictors[f'class_{c}'] = nn.Sequential(
                 nn.Linear(dim, dim),
             )
+            self.optimizers[f'class_{c}'] = \
+                optim.Adam(self.predictors[f'class_{c}'].parameters(),
+                           0.001)
 
         for p in self.modules():
             if isinstance(p, nn.Linear):
@@ -34,6 +38,9 @@ class RNDModel(nn.Module):
 
     def activate_predictor(self, class_):
         self.activated_predictor = self.predictors[f'class_{class_}']
+
+    def get_optimizer(self, class_i):
+        return self.optimizers[f"class_{class_i}"]
 
     def predict(self, next_obs):
         predict_features = []
@@ -64,8 +71,7 @@ def train(epoch, rnd, train_loader):
 
         predictor_feature, target_feature = rnd(x)
         loss = mse_loss(predictor_feature, target_feature).mean()
-        optimizer = optim.Adam(list(rnd.activated_predictor.parameters()),
-                               lr=0.001)
+        optimizer = rnd.get_optimizer(y.item())
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -128,7 +134,6 @@ if __name__ == "__main__":
     params = []
     for _, predictor in rnd.predictors.items():
         params += list(predictor.parameters())
-    optimizer = optim.Adam(params, lr=0.001)
     mse_loss = nn.MSELoss(reduction='none')
 
     # Dataset of 100 samples (10 per class)
