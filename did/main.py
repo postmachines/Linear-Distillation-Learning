@@ -4,8 +4,8 @@ import torch.nn as nn
 from torch.nn import init
 import torch.optim as optim
 import torchvision
-from collections import Counter
 
+from .data.utils import get_few_shot_mnist
 
 if torch.cuda.is_available():
     device = 'cuda'
@@ -99,18 +99,6 @@ def test(rnd, test_loader):
         print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i+1, 100. * correct / (batch_i+1)))
 
 
-def get_few_shot_mnist(shot=10):
-    few_shot_dataset = []
-    class_counter = Counter()
-    for batch_i, (x, y) in enumerate(train_loader):
-        if class_counter[y.item()] < shot:
-            class_counter[y.item()] += 1
-            few_shot_dataset.append((x, y))
-        if all([x == shot for x in class_counter.values()]):
-            break
-    return few_shot_dataset
-
-
 if __name__ == "__main__":
     torch.manual_seed(2019)
 
@@ -137,7 +125,7 @@ if __name__ == "__main__":
     mse_loss = nn.MSELoss(reduction='none')
 
     # Dataset of 100 samples (10 per class)
-    few_shot_dataset = get_few_shot_mnist(shot=10)
+    few_shot_dataset = get_few_shot_mnist(train_loader, shot=10)
 
     epochs = 10
     for epoch in range(epochs):
