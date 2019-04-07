@@ -23,7 +23,7 @@ class RNDModel(nn.Module):
         self.optimizers = {}
         for c in range(n_classes):
             self.predictors[f'class_{c}'] = nn.Sequential(
-                nn.Linear(dim, dim),
+                nn.Linear(dim, dim)
             )
             self.optimizers[f'class_{c}'] = \
                 optim.Adam(self.predictors[f'class_{c}'].parameters(),
@@ -79,7 +79,7 @@ def train(epoch, rnd, train_loader):
         if batch_i % 25 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
             print(msg.format(epoch+1, batch_i, len(train_loader),
-                             batch_i/len(train_loader)*100, loss.item()))
+                         batch_i/len(train_loader)*100, loss.item()))
 
 
 def test(rnd, test_loader):
@@ -103,14 +103,14 @@ if __name__ == "__main__":
 
     # Load data
     train_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('../data/MNIST/', train=True, download=True,
-                                   transform=torchvision.transforms.ToTensor(),
-                                   ),
+    torchvision.datasets.MNIST('../data/MNIST/', train=True, download=True,
+                       transform=torchvision.transforms.ToTensor(),
+                       ),
         batch_size=1, shuffle=True)
     test_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('../data/MNIST/', train=False, download=True,
-                                   transform=torchvision.transforms.ToTensor(),
-                                   ),
+    torchvision.datasets.MNIST('../data/MNIST/', train=False, download=True,
+                        transform=torchvision.transforms.ToTensor(),
+                       ),
         batch_size=1, shuffle=True)
 
     # Random Network Distillation
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     # Dataset of 100 samples (10 per class)
     few_shot_dataset = get_few_shot_mnist(train_loader, shot=10)
 
-    epochs = 10
+    epochs = 3
     for epoch in range(epochs):
         train(epoch, rnd, few_shot_dataset)
         test(rnd, test_loader)
