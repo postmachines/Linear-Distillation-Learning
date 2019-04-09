@@ -14,16 +14,27 @@ else:
 
 
 class RNDModel(nn.Module):
-    def __init__(self, n_classes, dim=784):
+    def __init__(self, n_classes, input_dim=784, output_dim=784,
+                 nonlinearity='relu'):
         super(RNDModel, self).__init__()
 
         self.activated_predictor = None
-        self.target = nn.Sequential(nn.Linear(dim, dim))
+        self.target = nn.Sequential(nn.Linear(input_dim, output_dim))
         self.predictors = {}
         self.optimizers = {}
+        nonlinearity = nonlinearity.lower()
+        if nonlinearity == 'relu':
+            nonlin = nn.ReLU
+        elif nonlinearity  == 'sigmoid':
+            nonlin = nn.Sigmoid
+        elif nonlinearity == 'prelu':
+            nonlin = nn.PReLU
         for c in range(n_classes):
             self.predictors[f'class_{c}'] = nn.Sequential(
-                nn.Linear(dim, dim)
+                nn.Linear(input_dim, output_dim),
+                nonlin(),
+                nn.Linear(output_dim, output_dim),
+                nonlin()
             )
             self.optimizers[f'class_{c}'] = \
                 optim.Adam(self.predictors[f'class_{c}'].parameters(),
@@ -67,14 +78,24 @@ def train(epoch, rnd, train_loader):
         x = x.view(x.shape[0], -1).to(device)
         y = y.to(device)
 
-        rnd.activate_predictor(class_=y.item())
-
-        predictor_feature, target_feature = rnd(x)
-        loss = mse_loss(predictor_feature, target_feature).mean()
-        optimizer = rnd.get_optimizer(y.item())
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        for c in range(10):
+            rnd.activate_predictor(class_=y.item())
+            predictor_feature, target_feature = rnd(x)
+            if c == y.item():
+                # Reduce MSE between target and predictor
+                loss = mse_loss(predictor_feature, target_feature).mean()
+                optimizer = rnd.get_optimizer(y.item())
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+            else:
+                # Increase MSE between target and predictor
+                loss_neg = -mse_loss(predictor_feature, target_feature).mean()
+                optimizer = optim.Adam(rnd.predictors[f'class_{c}'].parameters(),
+                                       lr=0.0001)
+                optimizer.zero_grad()
+                loss_neg.backward()
+                optimizer.step()
 
         if batch_i % 25 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
@@ -114,7 +135,9 @@ if __name__ == "__main__":
         batch_size=1, shuffle=True)
 
     # Random Network Distillation
-    rnd = RNDModel(10)
+    rnd = RNDModel(10, input_dim=784,
+                   output_dim=784,
+                   nonlinearity='sigmoid')
     rnd.to(device)
 
     # Loss
@@ -123,7 +146,7 @@ if __name__ == "__main__":
     # Dataset of 100 samples (10 per class)
     few_shot_dataset = get_few_shot_mnist(train_loader, shot=10)
 
-    epochs = 3
+    epochs = 10
     for epoch in range(epochs):
         train(epoch, rnd, few_shot_dataset)
         test(rnd, test_loader)
