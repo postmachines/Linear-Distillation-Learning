@@ -6,6 +6,8 @@ import torch.optim as optim
 import torchvision
 
 from data.utils import get_few_shot_mnist
+from data import load_omniglot, get_n_classes
+
 
 if torch.cuda.is_available():
     device = 'cuda'
@@ -62,15 +64,15 @@ class RNDModel(nn.Module):
                 self.predictors[predictor].to(device)
 
 
-def train(epoch, rnd, train_loader):
+def train(rnd, loss_func, train_loader, epoch=0):
     for batch_i, (x, y) in enumerate(train_loader):
-        x = x.view(x.shape[0], -1).to(device)
+        x = x.squeeze().to(device)
         y = y.to(device)
 
         rnd.activate_predictor(class_=y.item())
 
         predictor_feature, target_feature = rnd(x)
-        loss = mse_loss(predictor_feature, target_feature).mean()
+        loss = loss_func(predictor_feature, target_feature).mean()
         optimizer = rnd.get_optimizer(y.item())
         optimizer.zero_grad()
         loss.backward()
@@ -86,44 +88,55 @@ def test(rnd, test_loader):
     rnd.eval()
     correct = 0
     with torch.no_grad():
-        for batch_i, (x, y)  in enumerate(test_loader):
-            x = x.view(x.shape[0], -1)
+        for batch_i, (x, y) in enumerate(test_loader):
+            x = x.squeeze()
             predict_next_state_feature, target_next_state_feature = rnd.predict(x.to(device))
             mses = []
             for predict in predict_next_state_feature:
-                mses.append((target_next_state_feature - predict).pow(2).sum(1) / 2)
+                mses.append((target_next_state_feature - predict).pow(2).sum(0) / 2)
             class_min_mse = np.argmin(mses)
             if class_min_mse == y.item():
                 correct += 1
-        print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i+1, 100. * correct / (batch_i+1)))
+        acc = correct / (batch_i+1)
+        print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i+1, 100. * acc))
+    return acc
 
 
 if __name__ == "__main__":
     torch.manual_seed(2019)
 
-    # Load data
-    train_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST('../data/MNIST/', train=True, download=True,
-                       transform=torchvision.transforms.ToTensor(),
-                       ),
-        batch_size=1, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST('../data/MNIST/', train=False, download=True,
-                        transform=torchvision.transforms.ToTensor(),
-                       ),
-        batch_size=1, shuffle=True)
-
-    # Random Network Distillation
-    rnd = RNDModel(10)
-    rnd.to(device)
-
-    # Loss
+    way = 5
+    train_shot = 5
+    test_shot = 1
     mse_loss = nn.MSELoss(reduction='none')
+    accs = []
 
-    # Dataset of 100 samples (10 per class)
-    few_shot_dataset = get_few_shot_mnist(train_loader, shot=10)
+    for _ in range(100):
 
-    epochs = 3
-    for epoch in range(epochs):
-        train(epoch, rnd, few_shot_dataset)
-        test(rnd, test_loader)
+        data = get_n_classes(way, train_shot, test_shot)
+
+        model = RNDModel(10)
+        model.to(device)
+
+        for sample in data:
+            x_train = sample['xs'].reshape((-1, 28*28))
+            y_train = np.asarray([i//train_shot for i in range(train_shot*way)])
+            x_test = sample['xq'].reshape((-1, 28*28))
+            y_test = np.asarray([i//test_shot for i in range(test_shot*way)])
+
+            x_train = torch.tensor(x_train)
+            y_train = torch.tensor(y_train)
+            x_test = torch.tensor(x_test)
+            y_test = torch.tensor(y_test)
+
+            #print("Train: ", x_train.shape, y_train.shape)
+            #print("Test: ", x_test.shape, y_test.shape)
+
+            inds = np.random.permutation(x_train.shape[0])
+            samples_train = list(zip(x_train[inds], y_train[inds]))
+            samples_test = list(zip(x_test, y_test))
+
+            train(model, loss_func=mse_loss, train_loader=samples_train)
+            accs.append(test(model, samples_test))
+
+    print("Mean accuracy: ", np.mean(accs))
