@@ -5,7 +5,7 @@ from torch.nn import init
 import torch.optim as optim
 import torchvision
 
-from data.utils import get_few_shot_mnist
+from data.utils import get_few_shot_mnist, get_augmented_images
 from data import load_omniglot, get_n_classes
 
 
@@ -69,6 +69,7 @@ def train(rnd, loss_func, train_loader, epoch=0):
         x = x.squeeze().to(device)
         y = y.to(device)
 
+        # Activare predictor for the needed class
         rnd.activate_predictor(class_=y.item())
 
         predictor_feature, target_feature = rnd(x)
@@ -78,7 +79,7 @@ def train(rnd, loss_func, train_loader, epoch=0):
         loss.backward()
         optimizer.step()
 
-        if batch_i % 25 == 0:
+        if batch_i % 100 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
             print(msg.format(epoch+1, batch_i, len(train_loader),
                          batch_i/len(train_loader)*100, loss.item()))
@@ -102,9 +103,47 @@ def test(rnd, test_loader):
     return acc
 
 
-if __name__ == "__main__":
-    torch.manual_seed(2019)
+def experiment_base():
+    way = 5
+    train_shot = 5
+    test_shot = 1
+    mse_loss = nn.MSELoss(reduction='none')
+    accs = []
 
+    for _ in range(1):
+
+        data = get_n_classes(way, train_shot, test_shot)
+
+        model = RNDModel(10)
+        model.to(device)
+
+        for sample in data:
+            x_train = sample['xs'].reshape((-1, 28 * 28))
+            y_train = np.asarray(
+                [i // train_shot for i in range(train_shot * way)])
+            x_test = sample['xq'].reshape((-1, 28 * 28))
+            y_test = np.asarray(
+                [i // test_shot for i in range(test_shot * way)])
+
+            x_train = torch.tensor(x_train)
+            y_train = torch.tensor(y_train)
+            x_test = torch.tensor(x_test)
+            y_test = torch.tensor(y_test)
+
+            # print("Train: ", x_train.shape, y_train.shape)
+            # print("Test: ", x_test.shape, y_test.shape)
+
+            inds = np.random.permutation(x_train.shape[0])
+            samples_train = list(zip(x_train[inds], y_train[inds]))
+            samples_test = list(zip(x_test, y_test))
+
+            train(model, loss_func=mse_loss, train_loader=samples_train)
+            accs.append(test(model, samples_test))
+
+    print("Mean accuracy: ", np.mean(accs))
+
+
+def experiment_simple_augmentation():
     way = 5
     train_shot = 5
     test_shot = 1
@@ -119,18 +158,44 @@ if __name__ == "__main__":
         model.to(device)
 
         for sample in data:
-            x_train = sample['xs'].reshape((-1, 28*28))
-            y_train = np.asarray([i//train_shot for i in range(train_shot*way)])
-            x_test = sample['xq'].reshape((-1, 28*28))
-            y_test = np.asarray([i//test_shot for i in range(test_shot*way)])
+            print("xs: ", sample['xs'].shape)
+            w, h = sample['xs'].shape[-2], sample['xs'].shape[-1]
+            print("w, h: ", w, h)
 
+            x_train = sample['xs'].squeeze().reshape((-1, w, h))
+            y_train = [i // train_shot for i in range(train_shot * way)]
+
+            # Shis should be done in preprocessing step
+            imgs_aug = []
+            y_aug = []
+            for i_img in range(x_train.shape[0]):
+                img = x_train[i_img].detach().numpy()
+                img *= 255
+
+                augmented = get_augmented_images(img, shift=4)
+                imgs_aug += augmented
+                y_aug += [y_train[i_img]] * len(augmented)
+
+            x_train = np.array(imgs_aug, np.float32) / 255.0
+            y_train = np.array(y_aug)
+
+            x_train = x_train.reshape((-1, 28*28))
+
+            print("x_train: ", x_train.shape)
+            print("y_train: ", y_train.shape)
+
+            x_test = sample['xq'].reshape((-1, 28 * 28))
+            y_test = np.asarray(
+                [i // test_shot for i in range(test_shot * way)])
+
+            #break
             x_train = torch.tensor(x_train)
             y_train = torch.tensor(y_train)
             x_test = torch.tensor(x_test)
             y_test = torch.tensor(y_test)
 
-            #print("Train: ", x_train.shape, y_train.shape)
-            #print("Test: ", x_test.shape, y_test.shape)
+            # print("Train: ", x_train.shape, y_train.shape)
+            # print("Test: ", x_test.shape, y_test.shape)
 
             inds = np.random.permutation(x_train.shape[0])
             samples_train = list(zip(x_train[inds], y_train[inds]))
@@ -140,3 +205,13 @@ if __name__ == "__main__":
             accs.append(test(model, samples_test))
 
     print("Mean accuracy: ", np.mean(accs))
+
+if __name__ == "__main__":
+    np.random.seed(2019)
+    torch.manual_seed(2019)
+
+    # Base experiment setup
+    experiment_base()
+
+    # Basic augmentation setup
+    experiment_simple_augmentation()
