@@ -1,1 +1,1 @@
-from .omniglot import load_omniglot, get_n_classes
+from .omniglot import get_n_classes
