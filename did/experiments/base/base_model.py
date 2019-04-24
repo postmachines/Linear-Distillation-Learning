@@ -1,19 +1,19 @@
+from tqdm import tqdm
 import numpy as np
 
 import torch
 import torch.nn as nn
 
-from did.data.utils import get_few_shot_mnist, get_augmented_images
-from did.data import load_omniglot, get_n_classes
+from did.data import get_n_classes
 from did.models import RNDModel
 
 
-def train(rnd, loss_func, train_loader, epoch=0):
+def train(rnd, loss_func, train_loader, epoch=0, silent=False):
     for batch_i, (x, y) in enumerate(train_loader):
         x = x.squeeze().to(device)
         y = y.to(device)
 
-        # Activare predictor for the needed class
+        # Activate predictor for the needed class
         rnd.activate_predictor(class_=y.item())
 
         predictor_feature, target_feature = rnd(x)
@@ -23,13 +23,13 @@ def train(rnd, loss_func, train_loader, epoch=0):
         loss.backward()
         optimizer.step()
 
-        if batch_i % 100 == 0:
+        if batch_i % 100 == 0 and not silent:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
             print(msg.format(epoch+1, batch_i, len(train_loader),
                          batch_i/len(train_loader)*100, loss.item()))
 
 
-def test(rnd, test_loader):
+def test(rnd, test_loader, silent=False):
     rnd.eval()
     correct = 0
     with torch.no_grad():
@@ -43,8 +43,13 @@ def test(rnd, test_loader):
             if class_min_mse == y.item():
                 correct += 1
         acc = correct / (batch_i+1)
-        print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i+1, 100. * acc))
+        if not silent:
+            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i+1, 100. * acc))
     return acc
+
+
+def preprocess_data(data):
+    return data
 
 
 if __name__ == "__main__":
@@ -52,18 +57,27 @@ if __name__ == "__main__":
     torch.manual_seed(2019)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    way = 10
-    train_shot = 5
-    test_shot = 1
-    mse_loss = nn.MSELoss(reduction='none')
-    accs = []
-    trials = 100
+    config = {
+        'way': 10,
+        'train_shot': 5,
+        'test_shot': 1,
+        'loss': nn.MSELoss(reduction='none'),
+        'trials': 100,
+        'silent': True
+    }
+    way = config['way']
+    train_shot = config['train_shot']
+    test_shot = config['test_shot']
+    mse_loss = config['loss']
+    trials = config['trials']
+    silent = config['silent']
 
-    for _ in range(trials):
+    accs = []
+    for _ in tqdm(range(trials)):
 
         data = get_n_classes(way, train_shot, test_shot)
 
-        model = RNDModel(10)
+        model = RNDModel(way)
         model.to(device)
 
         for sample in data:
@@ -73,6 +87,9 @@ if __name__ == "__main__":
             x_test = sample['xq'].reshape((-1, 28 * 28))
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
+
+            x_train = preprocess_data(x_train)
+            x_test = preprocess_data(x_test)
 
             x_train = torch.tensor(x_train)
             y_train = torch.tensor(y_train)
@@ -86,8 +103,9 @@ if __name__ == "__main__":
             samples_train = list(zip(x_train[inds], y_train[inds]))
             samples_test = list(zip(x_test, y_test))
 
-            train(model, loss_func=mse_loss, train_loader=samples_train)
-            accs.append(test(model, samples_test))
+            train(model, loss_func=mse_loss, train_loader=samples_train,
+                  silent=silent)
+            accs.append(test(model, samples_test, silent=silent))
 
     print("Mean accuracy: ", np.mean(accs))
 

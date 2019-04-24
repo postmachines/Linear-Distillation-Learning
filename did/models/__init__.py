@@ -1,2 +1,2 @@
 from .base import RNDModel
-from .cnn import SIMMRESNET18
+from .cnn import SIMMResNet18
