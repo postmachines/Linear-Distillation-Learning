@@ -8,6 +8,7 @@ from PIL import Image
 
 import torch
 from torchvision.transforms import ToTensor, Resize
+from torchvision import transforms
 from torchnet.dataset import ListDataset, TransformDataset
 from torchnet.transform import compose
 
@@ -49,6 +50,19 @@ class EpisodicBatchSampler(object):
 def load_image_path(key, out_field, d):
     d[out_field] = Image.open(d[key])
     return d
+
+
+def load_pil_image(path):
+    img = Image.open(path)
+    return img
+
+
+def scale_pil_image(img, size=(28,28)):
+    return img.resize(size)
+
+
+def pil2tensor(img):
+    return torch.from_numpy(np.array(img, np.float32))
 
 
 def convert_tensor(key, d):
@@ -140,4 +154,26 @@ def get_n_classes(way, train_shot, test_shot, split='train'):
 
     sampler = EpisodicBatchSampler(len(ds), way, 1)
     loader = torch.utils.data.DataLoader(ds, batch_sampler=sampler, num_workers=0)
+    return loader
+
+
+def load_unlabeled_data():
+    spliting = 'vinyals'
+    split_dir = os.path.join(OMNIGLOT_DATA_DIR, 'splits', spliting)
+
+    image_dir = os.path.join(OMNIGLOT_DATA_DIR, 'data')
+    images_files = glob.glob(os.path.join(image_dir, "*/*/*.png"))
+    print("Image dir: ", image_dir)
+    print("Images: ", len(images_files))
+
+    image_ds = TransformDataset(ListDataset(images_files),
+                                compose([load_pil_image,
+                                         scale_pil_image,
+                                         #pil2tensor,
+                                         transforms.ToTensor(),
+                                         #transforms.Normalize((0.5,), (0.5,))
+                                         ]))
+
+    loader = torch.utils.data.DataLoader(image_ds, batch_size=32,
+                                         shuffle=True)
     return loader

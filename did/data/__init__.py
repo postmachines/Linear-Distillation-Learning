@@ -1,1 +1,1 @@
-from .omniglot import get_n_classes
+from .omniglot import get_n_classes, load_unlabeled_data
