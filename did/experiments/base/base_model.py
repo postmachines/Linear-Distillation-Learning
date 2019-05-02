@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from did.data import get_n_classes
+from did.data import get_episodic_loader
 from did.models import RNDModel
 
 
@@ -63,7 +63,9 @@ if __name__ == "__main__":
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
         'trials': 100,
-        'silent': True
+        'silent': True,
+        'split': 'test',
+        'add_rotations': False
     }
     way = config['way']
     train_shot = config['train_shot']
@@ -71,16 +73,20 @@ if __name__ == "__main__":
     mse_loss = config['loss']
     trials = config['trials']
     silent = config['silent']
+    split = config['split']
+    add_rotations = config['add_rotations']
 
     accs = []
     for _ in tqdm(range(trials)):
 
-        data = get_n_classes(way, train_shot, test_shot)
+        dataloader = get_episodic_loader(way, train_shot, test_shot,
+                                         split=split,
+                                         add_rotations=add_rotations)
 
         model = RNDModel(way)
         model.to(device)
 
-        for sample in data:
+        for sample in dataloader:
             x_train = sample['xs'].reshape((-1, 28 * 28))
             y_train = np.asarray(
                 [i // train_shot for i in range(train_shot * way)])
