@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from did.data.utils import get_augmented_images
-from did.data import get_n_classes
+from did.data import get_episodic_loader
 from did.models import RNDModel
 
 
@@ -84,13 +84,15 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     config = {
-        'way': 10,
-        'train_shot': 5,
+        'way': 5,
+        'train_shot': 1,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
         'data_dim': 28,
         'trials': 100,
-        'silent': True
+        'silent': True,
+        'split': 'test',
+        'add_rotations': True,
     }
     way = config['way']
     train_shot = config['train_shot']
@@ -99,11 +101,14 @@ if __name__ == "__main__":
     trials = config['trials']
     w = h = config['data_dim']
     silent = True
+    split = config['split']
+    add_rotations = True
 
     accs = []
     for _ in tqdm(range(trials)):
 
-        data = get_n_classes(way, train_shot, test_shot)
+        data = get_episodic_loader(way, train_shot, test_shot,
+                                   split=split, add_rotations=add_rotations)
 
         model = RNDModel(way)
         model.to(device)

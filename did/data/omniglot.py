@@ -104,9 +104,6 @@ def extract_episode(n_support, n_query, d):
     # data: N x C x H x W
     n_examples = d['data'].size(0)
 
-    if n_query == -1:
-        n_query = n_examples - n_support
-
     example_inds = torch.randperm(n_examples)[:(n_support+n_query)]
     support_inds = example_inds[:n_support]
     query_inds = example_inds[n_support:]
