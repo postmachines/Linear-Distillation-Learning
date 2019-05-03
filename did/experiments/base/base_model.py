@@ -65,6 +65,7 @@ if __name__ == "__main__":
         'trials': 100,
         'silent': True,
         'split': 'test',
+        'in_alphabet': True,
         'add_rotations': False
     }
     way = config['way']
@@ -75,13 +76,15 @@ if __name__ == "__main__":
     silent = config['silent']
     split = config['split']
     add_rotations = config['add_rotations']
+    in_alphabet = config['in_alphabet']
 
     accs = []
     for _ in tqdm(range(trials)):
 
         dataloader = get_episodic_loader(way, train_shot, test_shot,
                                          split=split,
-                                         add_rotations=add_rotations)
+                                         add_rotations=add_rotations,
+                                         in_alphabet=in_alphabet)
 
         model = RNDModel(way)
         model.to(device)

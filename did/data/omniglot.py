@@ -118,7 +118,7 @@ def extract_episode(n_support, n_query, d):
     }
 
 
-def get_episodic_loader(way, train_shot, test_shot, split='train', add_rotations=True):
+def between_alphabet_loader(way, train_shot, test_shot, split='train', add_rotations=True):
     """
     Return data loader of single episode.
 
@@ -161,6 +161,44 @@ def get_episodic_loader(way, train_shot, test_shot, split='train', add_rotations
     return loader
 
 
+def in_alphabet_loader(way, train_shot, test_shot, split='train'):
+    transforms = [load_class_images,
+                  partial(extract_episode, train_shot, test_shot)]
+    transforms = compose(transforms)
+
+    split_dir = os.path.join(OMNIGLOT_DATA_DIR, 'splits')
+    with open(os.path.join(split_dir, "{:s}.txt".format(split)), 'r') as f:
+        alphabet_names = f.readlines()
+    alphabet_names = list(map(lambda x: x.strip(), alphabet_names))
+
+    # Augment dataset with new classes via rotations
+    class_names = []
+    rotates = ["000"]
+
+    # Class name is alphabet/character/rotate degree
+    # Total number of classes: alphabet * character * rotate_degree
+    alph = np.random.choice(alphabet_names)
+    character_paths = glob.glob(
+        os.path.join(OMNIGLOT_DATA_DIR, "data", alph, "*"))
+    for ch_path in character_paths:
+        ch_name = ch_path[ch_path.rfind('/') + 1:]
+        class_names += [f"{alph}/{ch_name}/rot{rot}" for rot in rotates]
+
+    ds = TransformDataset(ListDataset(class_names), transforms)
+    sampler = EpisodicBatchSampler(len(ds), way, 1)
+    loader = torch.utils.data.DataLoader(ds, batch_sampler=sampler,
+                                         num_workers=0)
+    return loader
+
+
+def get_episodic_loader(way, train_shot, test_shot, split='train',
+                        add_rotations=True, in_alphabet=False):
+    if in_alphabet:
+        return in_alphabet_loader(way, train_shot, test_shot, split)
+    else:
+        return between_alphabet_loader(way, train_shot, test_shot, split, add_rotations)
+
+
 def get_data_loader(split):
     image_dir = os.path.join(OMNIGLOT_DATA_DIR, 'data')
     images_files = glob.glob(os.path.join(image_dir, "*/*/*.png"))
@@ -168,9 +206,7 @@ def get_data_loader(split):
     image_ds = TransformDataset(ListDataset(images_files),
                                 compose([load_pil_image,
                                          scale_pil_image,
-                                         #pil2tensor,
                                          transforms.ToTensor(),
-                                         #transforms.Normalize((0.5,), (0.5,))
                                          ]))
 
     loader = torch.utils.data.DataLoader(image_ds, batch_size=32,

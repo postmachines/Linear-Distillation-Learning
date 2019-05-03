@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     config = {
         'way': 5,
-        'train_shot': 1,
+        'train_shot': 5,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
         'data_dim': 28,
@@ -93,6 +93,7 @@ if __name__ == "__main__":
         'silent': True,
         'split': 'test',
         'add_rotations': True,
+        'in_alphabet': False,
     }
     way = config['way']
     train_shot = config['train_shot']
@@ -102,13 +103,16 @@ if __name__ == "__main__":
     w = h = config['data_dim']
     silent = True
     split = config['split']
-    add_rotations = True
+    add_rotations = config['add_rotations']
+    in_alphabet = config['in_alphabet']
 
     accs = []
     for _ in tqdm(range(trials)):
 
         data = get_episodic_loader(way, train_shot, test_shot,
-                                   split=split, add_rotations=add_rotations)
+                                   split=split,
+                                   add_rotations=add_rotations,
+                                   in_alphabet=in_alphabet)
 
         model = RNDModel(way)
         model.to(device)
