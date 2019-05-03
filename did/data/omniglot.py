@@ -7,7 +7,8 @@ import numpy as np
 from PIL import Image
 
 import torch
-from torchvision.transforms import ToTensor
+from torchvision.transforms import ToTensor, Resize
+from torchvision import transforms
 from torchnet.dataset import ListDataset, TransformDataset
 from torchnet.transform import compose
 
@@ -16,8 +17,8 @@ OMNIGLOT_DATA_DIR  = os.path.join('data/omniglot')
 OMNIGLOT_CACHE = { }
 
 
-def convert_dict(k, v):
-    return {k:v}
+# def convert_dict(k, v):
+#     return {k:v}
 
 
 class CudaTransform(object):
@@ -46,57 +47,62 @@ class EpisodicBatchSampler(object):
             yield torch.randperm(self.n_classes)[:self.n_way]
 
 
-def load_image_path(key, out_field, d):
-    d[out_field] = Image.open(d[key])
-    return d
+def load_image_path(path):
+    return Image.open(path)
 
 
-def convert_tensor(key, d):
-    d[key] = 1.0 - torch.from_numpy(np.array(d[key], np.float32, copy=False)).transpose(0, 1).contiguous().view(1, d[key].size[0], d[key].size[1])
-    return d
+def load_pil_image(path):
+    img = Image.open(path)
+    return img
 
 
-def rotate_image(key, rot, d):
-    d[key] = d[key].rotate(rot)
-    return d
+def scale_pil_image(img, size=(28,28)):
+    return img.resize(size)
 
 
-def scale_image(key, height, width, d):
-    d[key] = d[key].resize((height, width))
-    return d
+def pil2tensor(img):
+    return torch.from_numpy(np.array(img, np.float32))
 
 
-def load_class_images(d):
-    if d['class'] not in OMNIGLOT_CACHE:
-        alphabet, character, rot = d['class'].split('/')
+def convert_tensor(img):
+    return 1.0 - torch.from_numpy(np.array(img, np.float32, copy=False)).transpose(0, 1).contiguous().view(1, img.size[0], img.size[1])
+
+
+def rotate_image(rot, img):
+    return img.rotate(rot)
+
+
+def scale_image(height, width, img):
+    return img.resize((height, width))
+
+
+def load_class_images(class_name):
+    if class_name not in OMNIGLOT_CACHE:
+        alphabet, character, rot = class_name.split('/')
         image_dir = os.path.join(OMNIGLOT_DATA_DIR, 'data', alphabet, character)
 
         class_images = sorted(glob.glob(os.path.join(image_dir, '*.png')))
         if len(class_images) == 0:
-            raise Exception("No images found for omniglot class {} at {}. Did you run download_omniglot.sh first?".format(d['class'], image_dir))
+            raise Exception("No images found for omniglot class {} at {}. Did you run download_omniglot.sh first?".format(class_name, image_dir))
 
         image_ds = TransformDataset(ListDataset(class_images),
-                                    compose([partial(convert_dict, 'file_name'),
-                                             partial(load_image_path, 'file_name', 'data'),
-                                             partial(rotate_image, 'data', float(rot[3:])),
-                                             partial(scale_image, 'data', 28, 28),
-                                             partial(convert_tensor, 'data')]))
+                                    compose([load_image_path,
+                                             partial(rotate_image, float(rot[3:])),
+                                             partial(scale_image, 28, 28),
+                                             convert_tensor]))
 
         loader = torch.utils.data.DataLoader(image_ds, batch_size=len(image_ds), shuffle=False)
 
         for sample in loader:
-            OMNIGLOT_CACHE[d['class']] = sample['data']
+            OMNIGLOT_CACHE[class_name] = sample
             break
 
-    return { 'class': d['class'], 'data': OMNIGLOT_CACHE[d['class']] }
+    return {'class': class_name, 'data': OMNIGLOT_CACHE[class_name]}
 
 
 def extract_episode(n_support, n_query, d):
     # data: N x C x H x W
     n_examples = d['data'].size(0)
-
-    if n_query == -1:
-        n_query = n_examples - n_support
 
     example_inds = torch.randperm(n_examples)[:(n_support+n_query)]
     support_inds = example_inds[:n_support]
@@ -112,55 +118,7 @@ def extract_episode(n_support, n_query, d):
     }
 
 
-def load_omniglot(opt, splits):
-    split_dir = os.path.join(OMNIGLOT_DATA_DIR, 'splits', opt['data.split'])
-
-    ret = { }
-    for split in splits:
-        if split in ['val', 'test'] and opt['data.test_way'] != 0:
-            n_way = opt['data.test_way']
-        else:
-            n_way = opt['data.way']
-
-        if split in ['val', 'test'] and opt['data.test_shot'] != 0:
-            n_support = opt['data.test_shot']
-        else:
-            n_support = opt['data.shot']
-
-        if split in ['val', 'test'] and opt['data.test_query'] != 0:
-            n_query = opt['data.test_query']
-        else:
-            n_query = opt['data.query']
-
-        if split in ['val', 'test']:
-            n_episodes = opt['data.test_episodes']
-        else:
-            n_episodes = opt['data.train_episodes']
-
-        transforms = [partial(convert_dict, 'class'),
-                      load_class_images,
-                      partial(extract_episode, n_support, n_query)]
-        if opt['data.cuda']:
-            transforms.append(CudaTransform())
-
-        transforms = compose(transforms)
-
-        class_names = []
-        with open(os.path.join(split_dir, "{:s}.txt".format(split)), 'r') as f:
-            for class_name in f.readlines():
-                class_names.append(class_name.rstrip('\n'))
-        ds = TransformDataset(ListDataset(class_names), transforms)
-
-
-        sampler = EpisodicBatchSampler(len(ds), n_way, n_episodes)
-
-        # use num_workers=0, otherwise may receive duplicate episodes
-        ret[split] = torch.utils.data.DataLoader(ds, batch_sampler=sampler, num_workers=0)
-
-    return ret
-
-
-def get_n_classes(way, train_shot, test_shot, split='train'):
+def between_alphabet_loader(way, train_shot, test_shot, split='train', add_rotations=True):
     """
     Return data loader of single episode.
 
@@ -173,19 +131,84 @@ def get_n_classes(way, train_shot, test_shot, split='train'):
     Returns (torch.utils.data.DataLoader): torch data loader
 
     """
-    transforms = [partial(convert_dict, 'class'),
-                  load_class_images,
+    transforms = [load_class_images,
                   partial(extract_episode, train_shot, test_shot)]
     transforms = compose(transforms)
 
-    spliting = 'vinyals'
-    split_dir = os.path.join(OMNIGLOT_DATA_DIR, 'splits', spliting)
-    class_names = []
+    split_dir = os.path.join(OMNIGLOT_DATA_DIR, 'splits')
     with open(os.path.join(split_dir, "{:s}.txt".format(split)), 'r') as f:
-        for class_name in f.readlines():
-            class_names.append(class_name.rstrip('\n'))
+        alphabet_names = f.readlines()
+
+    # Augment dataset with new classes via rotations
+    class_names = []
+    if add_rotations:
+        rotates = ["000", "090", "180", "270"]
+    else:
+        rotates = ["000"]
+
+    # Class name is alphabet/character/rotate degree
+    # Total number of classes: alphabet * character * rotate_degree
+    for alph in alphabet_names:
+        character_paths = glob.glob(os.path.join(OMNIGLOT_DATA_DIR, "data", alph, "*"))
+        for ch_path in character_paths:
+            ch_name = ch_path[ch_path.rfind('/')+1:]
+            class_names += [f"{alph}/{ch_name}/rot{rot}" for rot in rotates]
+
     ds = TransformDataset(ListDataset(class_names), transforms)
 
     sampler = EpisodicBatchSampler(len(ds), way, 1)
     loader = torch.utils.data.DataLoader(ds, batch_sampler=sampler, num_workers=0)
+    return loader
+
+
+def in_alphabet_loader(way, train_shot, test_shot, split='train'):
+    transforms = [load_class_images,
+                  partial(extract_episode, train_shot, test_shot)]
+    transforms = compose(transforms)
+
+    split_dir = os.path.join(OMNIGLOT_DATA_DIR, 'splits')
+    with open(os.path.join(split_dir, "{:s}.txt".format(split)), 'r') as f:
+        alphabet_names = f.readlines()
+    alphabet_names = list(map(lambda x: x.strip(), alphabet_names))
+
+    # Augment dataset with new classes via rotations
+    class_names = []
+    rotates = ["000"]
+
+    # Class name is alphabet/character/rotate degree
+    # Total number of classes: alphabet * character * rotate_degree
+    alph = np.random.choice(alphabet_names)
+    character_paths = glob.glob(
+        os.path.join(OMNIGLOT_DATA_DIR, "data", alph, "*"))
+    for ch_path in character_paths:
+        ch_name = ch_path[ch_path.rfind('/') + 1:]
+        class_names += [f"{alph}/{ch_name}/rot{rot}" for rot in rotates]
+
+    ds = TransformDataset(ListDataset(class_names), transforms)
+    sampler = EpisodicBatchSampler(len(ds), way, 1)
+    loader = torch.utils.data.DataLoader(ds, batch_sampler=sampler,
+                                         num_workers=0)
+    return loader
+
+
+def get_episodic_loader(way, train_shot, test_shot, split='train',
+                        add_rotations=True, in_alphabet=False):
+    if in_alphabet:
+        return in_alphabet_loader(way, train_shot, test_shot, split)
+    else:
+        return between_alphabet_loader(way, train_shot, test_shot, split, add_rotations)
+
+
+def get_data_loader(split):
+    image_dir = os.path.join(OMNIGLOT_DATA_DIR, 'data')
+    images_files = glob.glob(os.path.join(image_dir, "*/*/*.png"))
+
+    image_ds = TransformDataset(ListDataset(images_files),
+                                compose([load_pil_image,
+                                         scale_pil_image,
+                                         transforms.ToTensor(),
+                                         ]))
+
+    loader = torch.utils.data.DataLoader(image_ds, batch_size=32,
+                                         shuffle=True)
     return loader

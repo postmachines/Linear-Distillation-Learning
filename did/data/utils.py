@@ -44,10 +44,10 @@ def translate(img, shift=10, direction='right', roll=True):
     return img
 
 
-def gaussian_noise(img, mean=0, sigma=10):
-    img = img.copy().astype(np.int16)
+def gaussian_noise(img, mean=0, sigma=0.04):
+    img = img.copy().astype(np.float)
     noise = np.random.normal(mean, sigma, img.shape).astype(np.int16)
-    mask_overflow_upper = img+noise >= 255
+    mask_overflow_upper = img+noise >= 1
     mask_overflow_lower = img+noise < 0
     noise[mask_overflow_upper] = 0
     noise[mask_overflow_lower] = 0
