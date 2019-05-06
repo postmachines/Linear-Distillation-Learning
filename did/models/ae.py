@@ -19,7 +19,7 @@ class AutoEncoder(nn.Module):
             nn.ReLU(True),
             nn.Linear(128, 256),
             nn.ReLU(True),
-            nn.Linear(256, 28*28),
+            nn.Linear(256, 28 * 28),
             nn.Sigmoid()
         )
 
@@ -32,15 +32,45 @@ class AutoEncoder(nn.Module):
         return self.encoder(x)
 
 
+class ConvAutoEncoder(nn.Module):
+    def __init__(self):
+        super(ConvAutoEncoder, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 16, 3, stride=3, padding=1),
+            nn.ReLU(True),
+            nn.MaxPool2d(2, stride=2),
+            nn.Conv2d(16, 8, 3, stride=2, padding=1),
+            nn.ReLU(True),
+            nn.MaxPool2d(2, stride=1)
+        )
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(8, 16, 3, stride=2),  # b, 16, 5, 5
+            nn.ReLU(True),
+            nn.ConvTranspose2d(16, 8, 5, stride=3, padding=1),  # b, 8, 15, 15
+            nn.ReLU(True),
+            nn.ConvTranspose2d(8, 1, 2, stride=2, padding=1),  # b, 1, 28, 28
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
+
+    def get_emb(self, x):
+        return self.encoder(x).squeeze()
+
+
 class AEModel(nn.Module):
     """
     First version of the model. Model consists of one target isometry
     initialized random nework and N_CLASSES linear predictor networks. As a
     result we have N_CLASSES optimizers each for its predictor.
     """
-    def __init__(self, n_classes, ae, dim=784, ae_dim=64):
+    def __init__(self, n_classes, ae, dim=784, ae_dim=64, cnn=False):
         super(AEModel, self).__init__()
 
+        self.cnn = cnn
         self.activated_predictor = None
         self.target = ae
         self.predictors = {}
@@ -69,13 +99,19 @@ class AEModel(nn.Module):
 
     def predict(self, next_obs):
         predict_features = []
-        target_feature = self.target.get_emb(next_obs)
+        if self.cnn:
+            target_feature = self.target.get_emb(next_obs.view(-1, 1, 28, 28))
+        else:
+            target_feature = self.target.get_emb(next_obs)
         for predictor in self.predictors:
             predict_features.append(self.predictors[predictor](next_obs))
         return predict_features, target_feature
 
     def forward(self, next_obs):
-        target_feature = self.target.get_emb(next_obs)
+        if self.cnn:
+            target_feature = self.target.get_emb(next_obs.view(-1, 1, 28, 28))
+        else:
+            target_feature = self.target.get_emb(next_obs)
         predict_feature = self.activated_predictor(next_obs)
         return predict_feature, target_feature
 

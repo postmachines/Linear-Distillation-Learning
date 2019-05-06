@@ -51,19 +51,6 @@ def load_image_path(path):
     return Image.open(path)
 
 
-def load_pil_image(path):
-    img = Image.open(path)
-    return img
-
-
-def scale_pil_image(img, size=(28,28)):
-    return img.resize(size)
-
-
-def pil2tensor(img):
-    return torch.from_numpy(np.array(img, np.float32))
-
-
 def convert_tensor(img):
     return 1.0 - torch.from_numpy(np.array(img, np.float32, copy=False)).transpose(0, 1).contiguous().view(1, img.size[0], img.size[1])
 
@@ -199,16 +186,27 @@ def get_episodic_loader(way, train_shot, test_shot, split='train',
         return between_alphabet_loader(way, train_shot, test_shot, split, add_rotations)
 
 
-def get_data_loader(split):
+def get_data_loader(split, batch_size=32):
+
+    def load_image(path):
+        img = Image.open(path)
+        return img
+
+    def scale_image(img, size=(28, 28)):
+        return img.resize(size)
+
+    def convert_to_tensor(img):
+        return 1.0 - torch.from_numpy(np.array(img, np.float32))
+
     image_dir = os.path.join(OMNIGLOT_DATA_DIR, 'data')
     images_files = glob.glob(os.path.join(image_dir, "*/*/*.png"))
 
     image_ds = TransformDataset(ListDataset(images_files),
-                                compose([load_pil_image,
-                                         scale_pil_image,
-                                         transforms.ToTensor(),
+                                compose([load_image,
+                                         scale_image,
+                                         convert_to_tensor,
                                          ]))
 
-    loader = torch.utils.data.DataLoader(image_ds, batch_size=32,
+    loader = torch.utils.data.DataLoader(image_ds, batch_size=batch_size,
                                          shuffle=True)
     return loader

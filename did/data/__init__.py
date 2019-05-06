@@ -1,1 +1,1 @@
-from .omniglot import get_episodic_loader
+from .omniglot import get_episodic_loader, get_data_loader
