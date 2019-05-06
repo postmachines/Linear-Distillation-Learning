@@ -11,6 +11,7 @@ from simple_augmentation import run_experiment
 if __name__ == "__main__":
     np.random.seed(2019)
     torch.manual_seed(2019)
+    print("GPU available: ", torch.cuda.is_available())
 
     configs = {
         'way': [5],
@@ -53,7 +54,4 @@ if __name__ == "__main__":
         df = pd.read_csv(res_path)
         df = df.append(pd.Series({**param, **{'accuracy': mean_accuracy}}), ignore_index=True)
         df.to_csv(res_path, index=False)
-
-        if i == 3:
-            break
 
