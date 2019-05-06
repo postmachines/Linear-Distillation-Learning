@@ -20,10 +20,10 @@ if __name__ == "__main__":
         'test_shot': [1],
         # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
         'x_dim': [28],
-        'z_dim': [50, 100, 200, 300, 500, 600, 784, 1000],
-        'optimizer': ['adam'],
+        'z_dim': [50, 100, 200, 300, 500, 600, 784, 1000, 2000],
+        'optimizer': ['adam', 'adadelta', 'sgd'],
         'lr': [0.01, 0.001, 0.0005],
-        'initialization': ['orthogonal', 'xavier_normal', 'xavier_uniform'],
+        'initialization': ['xavier_normal'],
         'channels': [1],
         'loss': [nn.MSELoss(reduction='none')],
         'trials': [100],
