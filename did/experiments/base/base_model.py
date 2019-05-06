@@ -8,7 +8,7 @@ from did.data import get_episodic_loader
 from did.models import RNDModel
 
 
-def train(rnd, loss_func, train_loader, epoch=0, silent=False):
+def train(rnd, loss_func, train_loader, epoch=0, silent=False, device=None):
     for batch_i, (x, y) in enumerate(train_loader):
         x = x.squeeze().to(device)
         y = y.to(device)
@@ -29,7 +29,7 @@ def train(rnd, loss_func, train_loader, epoch=0, silent=False):
                          batch_i/len(train_loader)*100, loss.item()))
 
 
-def test(rnd, test_loader, silent=False):
+def test(rnd, test_loader, silent=False, device='cpu'):
     rnd.eval()
     correct = 0
     with torch.no_grad():
@@ -52,22 +52,7 @@ def preprocess_data(data):
     return data
 
 
-if __name__ == "__main__":
-    np.random.seed(2019)
-    torch.manual_seed(2019)
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    config = {
-        'way': 10,
-        'train_shot': 5,
-        'test_shot': 1,
-        'loss': nn.MSELoss(reduction='none'),
-        'trials': 100,
-        'silent': True,
-        'split': 'test',
-        'in_alphabet': True,
-        'add_rotations': False
-    }
+def run_experiment(config):
     way = config['way']
     train_shot = config['train_shot']
     test_shot = config['test_shot']
@@ -77,23 +62,33 @@ if __name__ == "__main__":
     split = config['split']
     add_rotations = config['add_rotations']
     in_alphabet = config['in_alphabet']
+    x_dim = config['x_dim']
+    z_dim = config['z_dim']
+    n_channels = config['channels']
+    optimizer = config['optimizer']
+    lr = config['lr']
+    initialization = config['initialization']
+    gpu = config['gpu']
+
+    device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
     accs = []
     for _ in tqdm(range(trials)):
 
-        dataloader = get_episodic_loader(way, train_shot, test_shot,
+        dataloader = get_episodic_loader(way, train_shot, test_shot, x_dim,
                                          split=split,
                                          add_rotations=add_rotations,
                                          in_alphabet=in_alphabet)
 
-        model = RNDModel(way)
+        model = RNDModel(way, in_dim=x_dim**2, out_dim=z_dim, opt=optimizer,
+                         lr=lr, initialization=initialization)
         model.to(device)
 
         for sample in dataloader:
-            x_train = sample['xs'].reshape((-1, 28 * 28))
+            x_train = sample['xs'].reshape((-1, x_dim**2))
             y_train = np.asarray(
                 [i // train_shot for i in range(train_shot * way)])
-            x_test = sample['xq'].reshape((-1, 28 * 28))
+            x_test = sample['xq'].reshape((-1, x_dim**2))
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
 
@@ -113,9 +108,34 @@ if __name__ == "__main__":
             samples_test = list(zip(x_test, y_test))
 
             train(model, loss_func=mse_loss, train_loader=samples_train,
-                  silent=silent)
-            accs.append(test(model, samples_test, silent=silent))
+                  silent=silent, device=device)
+            accs.append(test(model, samples_test, silent=silent, device=device))
 
-    print("Mean accuracy: ", np.mean(accs))
+    return np.mean(accs)
 
 
+if __name__ == "__main__":
+    np.random.seed(2019)
+    torch.manual_seed(2019)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    config = {
+        'way': 10,
+        'train_shot': 5,
+        'test_shot': 1,
+        'loss': nn.MSELoss(reduction='none'),
+        'trials': 10,
+        'silent': True,
+        'split': 'test',
+        'in_alphabet': True,
+        'add_rotations': False,
+        'x_dim': 28,
+        'z_dim': 784,
+        'initialization': 'orthogonal',
+        'optimizer': 'adam',
+        'lr': 0.001,
+        'channels': 1,
+        'gpu': 0
+    }
+    mean_accuracy = run_experiment(config)
+    print("Mean accuracy: ", mean_accuracy)

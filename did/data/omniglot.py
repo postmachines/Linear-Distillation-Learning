@@ -63,7 +63,7 @@ def scale_image(height, width, img):
     return img.resize((height, width))
 
 
-def load_class_images(class_name):
+def load_class_images(x_dim, class_name):
     if class_name not in OMNIGLOT_CACHE:
         alphabet, character, rot = class_name.split('/')
         image_dir = os.path.join(OMNIGLOT_DATA_DIR, 'data', alphabet, character)
@@ -75,7 +75,7 @@ def load_class_images(class_name):
         image_ds = TransformDataset(ListDataset(class_images),
                                     compose([load_image_path,
                                              partial(rotate_image, float(rot[3:])),
-                                             partial(scale_image, 28, 28),
+                                             partial(scale_image, x_dim, x_dim),
                                              convert_tensor]))
 
         loader = torch.utils.data.DataLoader(image_ds, batch_size=len(image_ds), shuffle=False)
@@ -105,7 +105,7 @@ def extract_episode(n_support, n_query, d):
     }
 
 
-def between_alphabet_loader(way, train_shot, test_shot, split='train', add_rotations=True):
+def between_alphabet_loader(way, train_shot, test_shot, x_dim, split='train', add_rotations=True):
     """
     Return data loader of single episode.
 
@@ -118,7 +118,7 @@ def between_alphabet_loader(way, train_shot, test_shot, split='train', add_rotat
     Returns (torch.utils.data.DataLoader): torch data loader
 
     """
-    transforms = [load_class_images,
+    transforms = [partial(load_class_images, x_dim),
                   partial(extract_episode, train_shot, test_shot)]
     transforms = compose(transforms)
 
@@ -148,8 +148,8 @@ def between_alphabet_loader(way, train_shot, test_shot, split='train', add_rotat
     return loader
 
 
-def in_alphabet_loader(way, train_shot, test_shot, split='train'):
-    transforms = [load_class_images,
+def in_alphabet_loader(way, train_shot, test_shot, x_dim, split='train'):
+    transforms = [partial(load_class_images, x_dim),
                   partial(extract_episode, train_shot, test_shot)]
     transforms = compose(transforms)
 
@@ -178,22 +178,23 @@ def in_alphabet_loader(way, train_shot, test_shot, split='train'):
     return loader
 
 
-def get_episodic_loader(way, train_shot, test_shot, split='train',
+def get_episodic_loader(way, train_shot, test_shot, x_dim, split='train',
                         add_rotations=True, in_alphabet=False):
     if in_alphabet:
-        return in_alphabet_loader(way, train_shot, test_shot, split)
+        return in_alphabet_loader(way, train_shot, test_shot, x_dim, split)
     else:
-        return between_alphabet_loader(way, train_shot, test_shot, split, add_rotations)
+        return between_alphabet_loader(way, train_shot, test_shot, x_dim,
+                                       split, add_rotations)
 
 
-def get_data_loader(split, batch_size=32):
+def get_data_loader(split, x_dim, batch_size=32):
 
     def load_image(path):
         img = Image.open(path)
         return img
 
-    def scale_image(img, size=(28, 28)):
-        return img.resize(size)
+    def scale_image(x_dim, img):
+        return img.resize((x_dim, x_dim))
 
     def convert_to_tensor(img):
         return 1.0 - torch.from_numpy(np.array(img, np.float32))
@@ -203,7 +204,7 @@ def get_data_loader(split, batch_size=32):
 
     image_ds = TransformDataset(ListDataset(images_files),
                                 compose([load_image,
-                                         scale_image,
+                                         partial(scale_image, x_dim),
                                          convert_to_tensor,
                                          ]))
 

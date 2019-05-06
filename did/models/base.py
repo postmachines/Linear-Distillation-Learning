@@ -10,24 +10,44 @@ class RNDModel(nn.Module):
     initialized random nework and N_CLASSES linear predictor networks. As a
     result we have N_CLASSES optimizers each for its predictor.
     """
-    def __init__(self, n_classes, dim=784):
+    def __init__(self, n_classes, in_dim=784, out_dim=784, opt='adam', lr=0.001,
+                 initialization='orthogonal'):
         super(RNDModel, self).__init__()
 
         self.activated_predictor = None
-        self.target = nn.Sequential(nn.Linear(dim, dim))
+        self.target = nn.Sequential(nn.Linear(in_dim, out_dim))
         self.predictors = {}
         self.optimizers = {}
+
+        opt = opt.lower()
+        if opt == 'adam':
+            opt = optim.Adam
+        elif opt == 'adadelta':
+            opt = optim.Adadelta
+        elif opt == 'adagrad':
+            opt = optim.Adagrad
+        elif opt == 'sgd':
+            opt = optim.SGD
+        else:
+            raise ValueError(f"Unknown optimizer: {opt}")
+
         for c in range(n_classes):
             self.predictors[f'class_{c}'] = nn.Sequential(
-                nn.Linear(dim, dim)
+                nn.Linear(in_dim, out_dim)
             )
             self.optimizers[f'class_{c}'] = \
-                optim.Adam(self.predictors[f'class_{c}'].parameters(),
-                           0.001)
+                opt(self.predictors[f'class_{c}'].parameters(), lr)
 
         for p in self.modules():
             if isinstance(p, nn.Linear):
-                init.orthogonal_(p.weight)
+                if initialization == 'orthogonal':
+                    init.orthogonal_(p.weight)
+                elif initialization == 'xavier_normal':
+                    init.xavier_normal_(p.weight)
+                elif initialization == 'xavier_uniform':
+                    init.xavier_uniform_(p.weight)
+                else:
+                    raise ValueError(f"Unknown initialization function: {initialization}")
 
         for param in self.target.parameters():
             param.requires_grad = False
