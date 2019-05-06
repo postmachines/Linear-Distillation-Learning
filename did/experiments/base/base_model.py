@@ -64,7 +64,6 @@ def run_experiment(config):
     in_alphabet = config['in_alphabet']
     x_dim = config['x_dim']
     z_dim = config['z_dim']
-    n_channels = config['channels']
     optimizer = config['optimizer']
     lr = config['lr']
     initialization = config['initialization']

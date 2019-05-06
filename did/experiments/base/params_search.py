@@ -1,3 +1,4 @@
+import os
 from time import time
 import itertools
 import numpy as np
@@ -16,8 +17,8 @@ if __name__ == "__main__":
         'way': [5],
         'train_shot': [1, 3, 5, 10],
         'test_shot': [1],
-        'x_dim': [28, 30, 40, 50, 60, 70, 80, 105],
-        'z_dim': [100, 200, 300, 500, 600, 784, 1000, 2000],
+        'x_dim': [28], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
+        'z_dim': [50, 100, 200, 300, 500, 600, 784, 1000, 2000],
         'optimizer': ['adam'],
         'lr': [0.01, 0.001, 0.0005],
         'initialization': ['orthogonal', 'xavier_normal', 'xavier_uniform'],
@@ -35,10 +36,11 @@ if __name__ == "__main__":
     keys, values = zip(*configs.items())
     param_grid = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
-    # Create empty resulting file
+    # Create resulting file if necessary
     res_path = "did/experiments/base/results.csv"
-    df = pd.DataFrame(columns=configs.keys())
-    df.to_csv(res_path, index=False)
+    if not os.path.exists(res_path):
+        df = pd.DataFrame(columns=configs.keys())
+        df.to_csv(res_path, index=False)
 
     conf_durations = []
     for i, param in enumerate(param_grid):
