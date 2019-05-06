@@ -180,6 +180,9 @@ def in_alphabet_loader(way, train_shot, test_shot, x_dim, split='train'):
 
 def get_episodic_loader(way, train_shot, test_shot, x_dim, split='train',
                         add_rotations=True, in_alphabet=False):
+    global OMNIGLOT_CACHE
+    OMNIGLOT_CACHE = {}
+
     if in_alphabet:
         return in_alphabet_loader(way, train_shot, test_shot, x_dim, split)
     else:
