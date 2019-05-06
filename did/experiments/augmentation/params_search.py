@@ -55,6 +55,6 @@ if __name__ == "__main__":
         mean_accuracy = run_experiment(config=param)
         conf_durations.append(time() - time_start)
         df = pd.read_csv(res_path)
-        df = df.append(pd.Series({**param, **{'accuracy': mean_accuracy}}), ignore_index=True)
+        df = df.append(pd.Series({**param, **{'accuracy': mean_accuracy, 'duration_sec': conf_durations[-1]}}), ignore_index=True)
         df.to_csv(res_path, index=False)
 

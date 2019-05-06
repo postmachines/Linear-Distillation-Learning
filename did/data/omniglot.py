@@ -2,6 +2,7 @@ import os
 import sys
 import glob
 from functools import partial
+from tqdm import tqdm
 
 import numpy as np
 from PIL import Image
@@ -125,6 +126,7 @@ def between_alphabet_loader(way, train_shot, test_shot, x_dim, split='train', ad
     split_dir = os.path.join(OMNIGLOT_DATA_DIR, 'splits')
     with open(os.path.join(split_dir, "{:s}.txt".format(split)), 'r') as f:
         alphabet_names = f.readlines()
+    alphabet_names = list(map(lambda x: x.strip(), alphabet_names))
 
     # Augment dataset with new classes via rotations
     class_names = []
@@ -141,10 +143,15 @@ def between_alphabet_loader(way, train_shot, test_shot, x_dim, split='train', ad
             ch_name = ch_path[ch_path.rfind('/')+1:]
             class_names += [f"{alph}/{ch_name}/rot{rot}" for rot in rotates]
 
+    # Uploading dataset into memory
+    if len(OMNIGLOT_CACHE) != len(class_names):
+        for cname in tqdm(class_names, desc="Uploading omniglot to memory"):
+            load_class_images(x_dim, cname)
+
     ds = TransformDataset(ListDataset(class_names), transforms)
 
     sampler = EpisodicBatchSampler(len(ds), way, 1)
-    loader = torch.utils.data.DataLoader(ds, batch_sampler=sampler, num_workers=0)
+    loader = torch.utils.data.DataLoader(ds, batch_sampler=sampler)
     return loader
 
 
@@ -159,11 +166,25 @@ def in_alphabet_loader(way, train_shot, test_shot, x_dim, split='train'):
     alphabet_names = list(map(lambda x: x.strip(), alphabet_names))
 
     # Augment dataset with new classes via rotations
-    class_names = []
+
     rotates = ["000"]
+
+    # Uploading dataset into memory for the first time
+    if len(OMNIGLOT_CACHE) == 0:
+        all_class_names = []
+        for alph in alphabet_names:
+            character_paths = glob.glob(
+                os.path.join(OMNIGLOT_DATA_DIR, "data", alph, "*"))
+            for ch_path in character_paths:
+                ch_name = ch_path[ch_path.rfind('/') + 1:]
+                all_class_names += [f"{alph}/{ch_name}/rot{rot}" for rot in rotates]
+
+        for cname in tqdm(all_class_names, desc="Uploading omniglot to memory"):
+            load_class_images(x_dim, cname)
 
     # Class name is alphabet/character/rotate degree
     # Total number of classes: alphabet * character * rotate_degree
+    class_names = []
     alph = np.random.choice(alphabet_names)
     character_paths = glob.glob(
         os.path.join(OMNIGLOT_DATA_DIR, "data", alph, "*"))

@@ -18,10 +18,10 @@ if __name__ == "__main__":
         'train_shot': [1, 3, 5, 10],
         'test_shot': [1],
         'x_dim': [28], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
-        'z_dim': [50, 100, 200, 300, 500, 600, 784, 1000, 2000],
-        'optimizer': ['adam'],
+        'z_dim': [50, 100, 200, 300, 500, 600, 784, 1000, 2000, 3000],
+        'optimizer': ['adam', 'adagrad', 'adadelta'],
         'lr': [0.01, 0.001, 0.0005],
-        'initialization': ['orthogonal', 'xavier_normal', 'xavier_uniform'],
+        'initialization': ['xavier_normal'],
         'channels': [1],
         'loss': [nn.MSELoss(reduction='none')],
         'trials': [100],
@@ -54,6 +54,7 @@ if __name__ == "__main__":
         mean_accuracy = run_experiment(config=param)
         conf_durations.append(time() - time_start)
         df = pd.read_csv(res_path)
-        df = df.append(pd.Series({**param, **{'accuracy': mean_accuracy}}), ignore_index=True)
+        df = df.append(pd.Series({**param, **{'accuracy': mean_accuracy,
+                                              'duration_sec': conf_durations[-1]}}), ignore_index=True)
         df.to_csv(res_path, index=False)
 
