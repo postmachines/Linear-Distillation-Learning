@@ -9,7 +9,7 @@ from did.data import get_episodic_loader
 from did.models import RNDModel
 
 
-def train(rnd, loss_func, train_loader, epoch=0, silent=False, device=None):
+def run_epoch(rnd, loss_func, train_loader, epoch=0, silent=False, device=None):
     for batch_i, (x, y) in enumerate(train_loader):
         x = x.squeeze().to(device)
         y = y.to(device)
@@ -63,7 +63,7 @@ def augment_data(support, way, train_shot):
     x_train = support.squeeze().reshape((-1, w, h))
     y_train = [i // train_shot for i in range(train_shot * way)]
 
-    # Shis should be done in preprocessing step
+    # This should be done in preprocessing step
     imgs_aug = []
     y_aug = []
     for i_img in range(x_train.shape[0]):
@@ -84,13 +84,14 @@ def run_experiment(config):
     test_shot = config['test_shot']
     mse_loss = config['loss']
     trials = config['trials']
+    epochs = config['epochs']
+    pretrain_epochs = config['pretrain_epochs']
     silent = config['silent']
     split = config['split']
     add_rotations = config['add_rotations']
     in_alphabet = config['in_alphabet']
     x_dim = config['x_dim']
     z_dim = config['z_dim']
-    channels = config['channels']
     optimizer = config['optimizer']
     lr = config['lr']
     initialization = config['initialization']
@@ -114,6 +115,35 @@ def run_experiment(config):
             support = sample['xs']
             query = sample['xq']
 
+            # (1) Pretraining on pair samples
+            if pretrain_epochs:
+                x_train = support.reshape((-1, x_dim**2))
+                y_train = [i // train_shot for i in range(train_shot * way)]
+                x_pair_samples = []
+                y_pair_samples = []
+                # for each sample in train find random sample in the same train
+                # set and average them. final label is randomly chosen between
+                # original label and random chosen.
+                for i in tqdm(range(len(x_train)), desc="Pairing samples"):
+                    for _ in range(len(x_train)):
+                        img_true = x_train[i]
+                        i_random = np.random.randint(len(x_train))
+                        img_random = x_train[i_random]
+                        img_paired = (img_true + img_random) / 2
+
+                        x_pair_samples.append(img_paired.numpy())
+                        y_pair_samples.append(y_train[np.random.choice([i, i_random])])
+                x_pair_samples = torch.tensor(np.asarray(x_pair_samples))
+                y_pair_samples = torch.tensor(np.asarray(y_pair_samples))
+
+            for _ in tqdm(range(pretrain_epochs), desc="Pretraining"):
+                inds = np.random.permutation(x_pair_samples.shape[0])
+                samples_pretrain = list(zip(x_pair_samples[inds], y_pair_samples[inds]))
+                run_epoch(model, loss_func=mse_loss, train_loader=samples_pretrain,
+                          silent=silent, device=device)
+
+            # (2) Fine tuning on real samples
+
             x_train, y_train = augment_data(support, way, train_shot)
             x_train = x_train.reshape((-1, x_dim**2))
 
@@ -121,21 +151,22 @@ def run_experiment(config):
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
 
-            # break
             x_train = torch.tensor(x_train)
             y_train = torch.tensor(y_train)
             x_test = torch.tensor(x_test)
             y_test = torch.tensor(y_test)
 
-            # print("Train: ", x_train.shape, y_train.shape)
-            # print("Test: ", x_test.shape, y_test.shape)
+            #print("Train: ", x_train.shape, y_train.shape)
+            #print("Test: ", x_test.shape, y_test.shape)
 
             inds = np.random.permutation(x_train.shape[0])
             samples_train = list(zip(x_train[inds], y_train[inds]))
             samples_test = list(zip(x_test, y_test))
 
-            train(model, loss_func=mse_loss, train_loader=samples_train,
-                  silent=silent, device=device)
+            for i_epoch in range(epochs):
+                np.random.shuffle(samples_train)
+                run_epoch(model, loss_func=mse_loss, train_loader=samples_train,
+                      silent=silent, device=device)
             accs.append(test(model, samples_test, silent=silent, device=device))
 
     return np.mean(accs)
@@ -150,13 +181,15 @@ if __name__ == "__main__":
         'train_shot': 5,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
+        'epochs': 3,
+        'pretrain_epochs': 30,
         'trials': 100,
         'silent': True,
         'split': 'test',
         'in_alphabet': False,
         'add_rotations': True,
         'x_dim': 28,
-        'z_dim': 300,
+        'z_dim': 500,
         'initialization': 'xavier_normal',
         'optimizer': 'adam',
         'lr': 0.001,
@@ -165,3 +198,8 @@ if __name__ == "__main__":
     }
     mean_accuracy = run_experiment(config)
     print("Mean accuracy: ", mean_accuracy)
+
+    # 0.755 accuracy with simple augmentation
+    # 0.77 on 3 epochs
+    # Got 0.648 with 10 pretrained epochs...
+    # Got 0.652 with 30 pretrained epochs...
