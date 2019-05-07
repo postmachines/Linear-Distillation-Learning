@@ -1,0 +1,1 @@
+Basic failure: training procedure did not take in account notion of epochs i.e. all obtained results are from training upon all samples once (one epoch). The issure may be not critical for basic model as we noticed that accuracy was stable after very first epoch, but for augmented model increasing number of epochs may improve results.

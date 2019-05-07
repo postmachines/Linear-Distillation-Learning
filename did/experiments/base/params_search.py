@@ -24,7 +24,7 @@ if __name__ == "__main__":
         'initialization': ['xavier_normal'],
         'channels': [1],
         'loss': [nn.MSELoss(reduction='none')],
-        'trials': [1],
+        'trials': [100],
         'silent': [True],
         'split': ['test'],
         'in_alphabet': [False],
