@@ -5,24 +5,25 @@ import torch
 import torch.nn as nn
 
 from did.data import get_episodic_loader
-from model import DLDReversed
+from rnd import RNDModel
 
 
-def train(model, loss_func, train_loader, epochs, silent=False, device=None):
+def train(rnd, loss_func, train_loader, epochs, silent=False, device=None):
     for epoch in range(epochs):
         for batch_i, (x, y) in enumerate(train_loader):
             x = x.squeeze().to(device)
             y = y.to(device)
 
             # Activate predictor for the needed class
-            model.activate_predictor(class_=y.item())
+            rnd.activate_predictor(class_=y.item())
 
-            predictor_feature = model(x)
-            loss = loss_func(predictor_feature, x).mean()
-            optimizer = model.get_optimizer(y.item())
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            for _ in range(1):
+                predictor_feature, target_feature = rnd(x)
+                loss = loss_func(predictor_feature, target_feature).mean()
+                optimizer = rnd.get_optimizer(y.item())
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
             if batch_i % 100 == 0 and not silent:
                 msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
@@ -30,18 +31,16 @@ def train(model, loss_func, train_loader, epochs, silent=False, device=None):
                              batch_i/len(train_loader)*100, loss.item()))
 
 
-def test(model, test_loader, silent=False, device='cpu'):
-    model.eval()
+def test(rnd, test_loader, silent=False, device='cpu'):
+    rnd.eval()
     correct = 0
     with torch.no_grad():
         for batch_i, (x, y) in enumerate(test_loader):
             x = x.squeeze()
-            predict_next_state_feature = model.predict(x.to(device))
+            predict_next_state_feature, target_next_state_feature = rnd.predict(x.to(device))
             mses = []
-            x = x.to(device)
             for predict in predict_next_state_feature:
-                predict = predict.to(device)
-                mses.append((predict - x).pow(2).sum(0) / 2)
+                mses.append((target_next_state_feature - predict).pow(2).sum(0) / 2)
             class_min_mse = np.argmin(mses)
             if class_min_mse == y.item():
                 correct += 1
@@ -82,7 +81,7 @@ def run_experiment(config):
                                          add_rotations=add_rotations,
                                          in_alphabet=in_alphabet)
 
-        model = DLDReversed(way, in_dim=x_dim**2, out_dim=z_dim, opt=optimizer,
+        model = RNDModel(way, in_dim=x_dim**2, out_dim=z_dim, opt=optimizer,
                          lr=lr, initialization=initialization)
         model.to(device)
 
@@ -122,17 +121,17 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     config = {
-        'way': 5,
-        'train_shot': 1,
+        'way': 10,
+        'train_shot': 5,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 3,
+        'epochs': 20,
         'trials': 100,
         'silent': True,
         'split': 'test',
         'in_alphabet': False,
-        'add_rotations': True,
-        'x_dim': 28,
+        'add_rotations': False,
+        'x_dim': 30,
         'z_dim': 784,
         'initialization': 'orthogonal',
         'optimizer': 'adam',
