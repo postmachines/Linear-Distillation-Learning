@@ -8,25 +8,26 @@ from did.data import get_episodic_loader
 from did.models import RNDModel
 
 
-def train(rnd, loss_func, train_loader, epoch=0, silent=False, device=None):
-    for batch_i, (x, y) in enumerate(train_loader):
-        x = x.squeeze().to(device)
-        y = y.to(device)
+def train(rnd, loss_func, train_loader, epochs, silent=False, device=None):
+    for _ in range(epochs):
+        for batch_i, (x, y) in enumerate(train_loader):
+            x = x.squeeze().to(device)
+            y = y.to(device)
 
-        # Activate predictor for the needed class
-        rnd.activate_predictor(class_=y.item())
+            # Activate predictor for the needed class
+            rnd.activate_predictor(class_=y.item())
 
-        predictor_feature, target_feature = rnd(x)
-        loss = loss_func(predictor_feature, target_feature).mean()
-        optimizer = rnd.get_optimizer(y.item())
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            predictor_feature, target_feature = rnd(x)
+            loss = loss_func(predictor_feature, target_feature).mean()
+            optimizer = rnd.get_optimizer(y.item())
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        if batch_i % 100 == 0 and not silent:
-            msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
-            print(msg.format(epoch+1, batch_i, len(train_loader),
-                         batch_i/len(train_loader)*100, loss.item()))
+            if batch_i % 100 == 0 and not silent:
+                msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
+                print(msg.format(epoch+1, batch_i, len(train_loader),
+                             batch_i/len(train_loader)*100, loss.item()))
 
 
 def test(rnd, test_loader, silent=False, device='cpu'):
@@ -58,6 +59,7 @@ def run_experiment(config):
     test_shot = config['test_shot']
     mse_loss = config['loss']
     trials = config['trials']
+    epochs = config['epochs']
     silent = config['silent']
     split = config['split']
     add_rotations = config['add_rotations']
@@ -73,7 +75,6 @@ def run_experiment(config):
 
     accs = []
     for _ in tqdm(range(trials)):
-
         dataloader = get_episodic_loader(way, train_shot, test_shot, x_dim,
                                          split=split,
                                          add_rotations=add_rotations,
@@ -106,7 +107,7 @@ def run_experiment(config):
             samples_train = list(zip(x_train[inds], y_train[inds]))
             samples_test = list(zip(x_test, y_test))
 
-            train(model, loss_func=mse_loss, train_loader=samples_train,
+            train(model, loss_func=mse_loss, train_loader=samples_train, epochs=epochs,
                   silent=silent, device=device)
             accs.append(test(model, samples_test, silent=silent, device=device))
 
@@ -123,7 +124,8 @@ if __name__ == "__main__":
         'train_shot': 5,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'trials': 10,
+        'epochs': 2,
+        'trials': 100,
         'silent': True,
         'split': 'test',
         'in_alphabet': False,

@@ -81,13 +81,13 @@ def augment_data(support, way, train_shot):
 def augment_data_distill(samples, model, device="cuda:0"):
     aug_samples_x = []
     aug_samples_y = []
-    for sample in tqdm(samples, desc="Augmenting"):
+    for sample in tqdm(samples[:int(len(samples)*0.2)], desc="Augmenting"):
         i_rand = np.random.randint(len(samples))
         while samples[i_rand][1] == sample[1]:
             i_rand = np.random.randint(len(samples))
         x_rand, y_rand = samples[i_rand][0], samples[i_rand][1]
         th = 0.9
-        while True and th > 0.5:
+        while True and th > 0.7:
             sample_new = sample[0] * th + x_rand * (1-th)
             sample_new = torch.tensor(sample_new)
 
@@ -183,7 +183,7 @@ if __name__ == "__main__":
         'train_shot': 5,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 2,
+        'epochs': 3,
         'trials': 100,
         'silent': True,
         'split': 'test',
@@ -202,3 +202,7 @@ if __name__ == "__main__":
 
     # Accuracy = 0.77 on simple augmentation
     # Accuracy = 0.596 on first trial
+
+    # 0.764 with 0.1 increasing each time
+    # 0.744 with 0.2 increasing each time
+    # 0.66 with 0.2
