@@ -9,25 +9,28 @@ from did.data import get_episodic_loader
 from did.models import RNDModel
 
 
-def train(rnd, loss_func, train_loader, epoch=0, silent=False, device=None):
-    for batch_i, (x, y) in enumerate(train_loader):
-        x = x.squeeze().to(device)
-        y = y.to(device)
+def train(rnd, loss_func, train_loader, epochs, silent=False, device=None):
+    rnd.train()
+    for epoch in range(epochs):
+        np.random.shuffle(train_loader)
+        for batch_i, (x, y) in enumerate(train_loader):
+            x = x.squeeze().to(device)
+            y = y.to(device)
 
-        # Activate predictor for the needed class
-        rnd.activate_predictor(class_=y.item())
+            # Activate predictor for the needed class
+            rnd.activate_predictor(class_=y.item())
 
-        predictor_feature, target_feature = rnd(x)
-        loss = loss_func(predictor_feature, target_feature).mean()
-        optimizer = rnd.get_optimizer(y.item())
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            predictor_feature, target_feature = rnd(x)
+            loss = loss_func(predictor_feature, target_feature).mean()
+            optimizer = rnd.get_optimizer(y.item())
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        if batch_i % 100 == 0 and not silent:
-            msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
-            print(msg.format(epoch+1, batch_i, len(train_loader),
-                         batch_i/len(train_loader)*100, loss.item()))
+            if batch_i % 100 == 0 and not silent:
+                msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
+                print(msg.format(epoch+1, batch_i, len(train_loader),
+                             batch_i/len(train_loader)*100, loss.item()))
 
 
 def test(rnd, test_loader, silent=False, device=None):
@@ -79,10 +82,12 @@ def augment_data(support, way, train_shot):
 
 
 def run_experiment(config):
+    dataset = config['dataset']
     way = config['way']
     train_shot = config['train_shot']
     test_shot = config['test_shot']
     mse_loss = config['loss']
+    epochs = config['epochs']
     trials = config['trials']
     silent = config['silent']
     split = config['split']
@@ -99,13 +104,12 @@ def run_experiment(config):
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
     accs = []
+    data = get_episodic_loader(dataset, way, train_shot, test_shot,
+                               split=split,
+                               add_rotations=add_rotations,
+                               in_alphabet=in_alphabet, x_dim=x_dim)
+
     for _ in tqdm(range(trials)):
-
-        data = get_episodic_loader(way, train_shot, test_shot,
-                                   split=split,
-                                   add_rotations=add_rotations,
-                                   in_alphabet=in_alphabet, x_dim=x_dim)
-
         model = RNDModel(way, in_dim=x_dim**2, out_dim=z_dim, opt=optimizer,
                          lr=lr, initialization=initialization)
         model.to(device)
@@ -134,7 +138,7 @@ def run_experiment(config):
             samples_train = list(zip(x_train[inds], y_train[inds]))
             samples_test = list(zip(x_test, y_test))
 
-            train(model, loss_func=mse_loss, train_loader=samples_train,
+            train(model, loss_func=mse_loss, train_loader=samples_train, epochs=epochs,
                   silent=silent, device=device)
             accs.append(test(model, samples_test, silent=silent, device=device))
 
@@ -146,10 +150,12 @@ if __name__ == "__main__":
     torch.manual_seed(2019)
 
     config = {
-        'way': 5,
-        'train_shot': 5,
+        'dataset': 'mnist',
+        'way': 10,
+        'train_shot': 1,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
+        'epochs': 2,
         'trials': 100,
         'silent': True,
         'split': 'test',

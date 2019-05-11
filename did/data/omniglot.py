@@ -8,30 +8,12 @@ import numpy as np
 from PIL import Image
 
 import torch
-from torchvision.transforms import ToTensor, Resize
-from torchvision import transforms
 from torchnet.dataset import ListDataset, TransformDataset
 from torchnet.transform import compose
 
 
 OMNIGLOT_DATA_DIR  = os.path.join('data/omniglot')
 OMNIGLOT_CACHE = { }
-
-
-# def convert_dict(k, v):
-#     return {k:v}
-
-
-class CudaTransform(object):
-    def __init__(self):
-        pass
-
-    def __call__(self, data):
-        for k,v in data.items():
-            if hasattr(v, 'cuda'):
-                data[k] = v.cuda()
-
-        return data
 
 
 class EpisodicBatchSampler(object):
@@ -53,7 +35,7 @@ def load_image_path(path):
 
 
 def convert_tensor(img):
-    return 1.0 - torch.from_numpy(np.array(img, np.float32, copy=False)).transpose(0, 1).contiguous().view(1, img.size[0], img.size[1])
+    return 1.0 - torch.from_numpy(np.array(img, np.float32, copy=False)).transpose(0, 1).view(1, img.size[0], img.size[1])
 
 
 def rotate_image(rot, img):

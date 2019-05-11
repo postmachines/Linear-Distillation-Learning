@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 from torch import nn
 
-from base_model import run_experiment
+from train import run_experiment
 
 if __name__ == "__main__":
     np.random.seed(2019)
@@ -14,7 +14,9 @@ if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
-        'way': [5],
+        'dataset': 'mnist',
+        'epochs': [1],
+        'way': [10],
         'train_shot': [1, 3, 5, 10],
         'test_shot': [1],
         'x_dim': [28], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run

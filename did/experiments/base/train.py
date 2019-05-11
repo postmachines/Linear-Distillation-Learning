@@ -9,7 +9,9 @@ from did.models import RNDModel
 
 
 def train(rnd, loss_func, train_loader, epochs, silent=False, device=None):
-    for _ in range(epochs):
+    rnd.train()
+    for epoch in range(epochs):
+        np.random.shuffle(train_loader)
         for batch_i, (x, y) in enumerate(train_loader):
             x = x.squeeze().to(device)
             y = y.to(device)
@@ -54,6 +56,7 @@ def preprocess_data(data):
 
 
 def run_experiment(config):
+    dataset = config['dataset']
     way = config['way']
     train_shot = config['train_shot']
     test_shot = config['test_shot']
@@ -74,12 +77,11 @@ def run_experiment(config):
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
     accs = []
+    dataloader = get_episodic_loader(dataset, way, train_shot, test_shot, x_dim,
+                                     split=split,
+                                     add_rotations=add_rotations,
+                                     in_alphabet=in_alphabet)
     for _ in tqdm(range(trials)):
-        dataloader = get_episodic_loader(way, train_shot, test_shot, x_dim,
-                                         split=split,
-                                         add_rotations=add_rotations,
-                                         in_alphabet=in_alphabet)
-
         model = RNDModel(way, in_dim=x_dim**2, out_dim=z_dim, opt=optimizer,
                          lr=lr, initialization=initialization)
         model.to(device)
@@ -120,8 +122,9 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     config = {
+        'dataset': 'mnist',
         'way': 10,
-        'train_shot': 5,
+        'train_shot': 1,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
         'epochs': 2,
@@ -130,7 +133,7 @@ if __name__ == "__main__":
         'split': 'test',
         'in_alphabet': False,
         'add_rotations': False,
-        'x_dim': 30,
+        'x_dim': 28,
         'z_dim': 784,
         'initialization': 'orthogonal',
         'optimizer': 'adam',

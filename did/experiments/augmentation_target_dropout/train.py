@@ -17,7 +17,7 @@ def train(rnd, loss_func, train_loader, epochs, silent=False, device=None):
             # Activate predictor for the needed class
             rnd.activate_predictor(class_=y.item())
 
-            for _ in range(1):
+            for _ in range(5):
                 predictor_feature, target_feature = rnd(x)
                 loss = loss_func(predictor_feature, target_feature).mean()
                 optimizer = rnd.get_optimizer(y.item())
