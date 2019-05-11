@@ -12,8 +12,8 @@ if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
-        'dataset': 'mnist',
-        'epochs': [1],
+        'dataset': ['mnist'],
+        'epochs': [3],
         'way': [10],
         'train_shot': [1, 3, 5, 10],
         'test_shot': [1],
