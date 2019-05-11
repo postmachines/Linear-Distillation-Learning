@@ -67,7 +67,6 @@ def get_episodic_loader(way, train_shot, test_shot, split, **kwargs):
                'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
     data = {}
     for (x, y) in mnist_loader:
-        print("Let's look at y: ", y[:10])
         for i_class in range(10):
             data[classes[i_class]] = x[y==i_class, :, :, :]
 
@@ -81,12 +80,17 @@ def get_episodic_loader(way, train_shot, test_shot, split, **kwargs):
 
 
 def get_data_loader(split='train', batch_size=32):
+    import torchvision.transforms as transforms
+
     # Load data
+    transform = compose([transforms.ToTensor(),
+                         transforms.Normalize((0.5, 0.5, 0.5),
+                                              (0.5, 0.5, 0.5))])
     loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST('data/MNIST/', train=split=='train',
-                               download=True,
-                               transform=torchvision.transforms.ToTensor(),
-                       ),
+        torchvision.datasets.CIFAR10('data/CIFAR10/',
+                                 train=split=='train',
+                                 download=True,
+                                 transform=transform),
         batch_size=batch_size, shuffle=True)
 
     return loader

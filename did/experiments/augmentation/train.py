@@ -63,7 +63,8 @@ def augment_data(support, way, train_shot):
 
     """
     w, h = support.shape[-1], support.shape[-1]
-    x_train = support.squeeze().reshape((-1, w, h))
+    c = support.shape[2]
+    x_train = support.squeeze().reshape((-1, c, w, h))
     y_train = [i // train_shot for i in range(train_shot * way)]
 
     # Shis should be done in preprocessing step
@@ -78,6 +79,7 @@ def augment_data(support, way, train_shot):
 
     x_aug = np.array(imgs_aug, np.float32)
     y_aug = np.array(y_aug)
+
     return x_aug, y_aug
 
 
@@ -95,7 +97,7 @@ def run_experiment(config):
     in_alphabet = config['in_alphabet']
     x_dim = config['x_dim']
     z_dim = config['z_dim']
-    channels = config['channels']
+    c = config['channels']
     optimizer = config['optimizer']
     lr = config['lr']
     initialization = config['initialization']
@@ -110,7 +112,7 @@ def run_experiment(config):
                                in_alphabet=in_alphabet, x_dim=x_dim)
 
     for _ in tqdm(range(trials)):
-        model = RNDModel(way, in_dim=x_dim**2, out_dim=z_dim, opt=optimizer,
+        model = RNDModel(way, in_dim=c*x_dim**2, out_dim=z_dim, opt=optimizer,
                          lr=lr, initialization=initialization)
         model.to(device)
 
@@ -119,9 +121,9 @@ def run_experiment(config):
             query = sample['xq']
 
             x_train, y_train = augment_data(support, way, train_shot)
-            x_train = x_train.reshape((-1, x_dim**2))
+            x_train = x_train.reshape((-1, c*x_dim**2))
 
-            x_test = query.reshape((-1, x_dim**2))
+            x_test = query.reshape((-1, c*x_dim**2))
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
 
@@ -133,6 +135,8 @@ def run_experiment(config):
 
             # print("Train: ", x_train.shape, y_train.shape)
             # print("Test: ", x_test.shape, y_test.shape)
+
+            print("TraiN: ", x_train.shape)
 
             inds = np.random.permutation(x_train.shape[0])
             samples_train = list(zip(x_train[inds], y_train[inds]))
@@ -150,23 +154,23 @@ if __name__ == "__main__":
     torch.manual_seed(2019)
 
     config = {
-        'dataset': 'mnist',
-        'way': 10,
-        'train_shot': 1,
+        'dataset': 'cifar10',
+        'way': 2,
+        'train_shot': 10,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
         'epochs': 2,
-        'trials': 100,
+        'trials': 10,
         'silent': True,
         'split': 'test',
         'in_alphabet': False,
         'add_rotations': True,
-        'x_dim': 28,
-        'z_dim': 300,
+        'x_dim': 32,
+        'z_dim': 1024,
         'initialization': 'xavier_normal',
         'optimizer': 'adam',
         'lr': 0.001,
-        'channels': 1,
+        'channels': 3,
         'gpu': 0
     }
     mean_accuracy = run_experiment(config)
