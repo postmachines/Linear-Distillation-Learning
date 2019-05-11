@@ -56,6 +56,9 @@ def preprocess_data(data):
 
 
 def run_experiment(config):
+    np.random.seed(2019)
+    torch.manual_seed(2019)
+
     dataset = config['dataset']
     way = config['way']
     train_shot = config['train_shot']
@@ -69,6 +72,7 @@ def run_experiment(config):
     in_alphabet = config['in_alphabet']
     x_dim = config['x_dim']
     z_dim = config['z_dim']
+    c = config['channels']
     optimizer = config['optimizer']
     lr = config['lr']
     initialization = config['initialization']
@@ -82,15 +86,15 @@ def run_experiment(config):
                                      add_rotations=add_rotations,
                                      in_alphabet=in_alphabet)
     for _ in tqdm(range(trials)):
-        model = RNDModel(way, in_dim=x_dim**2, out_dim=z_dim, opt=optimizer,
+        model = RNDModel(way, in_dim=c*x_dim**2, out_dim=z_dim, opt=optimizer,
                          lr=lr, initialization=initialization)
         model.to(device)
 
         for sample in dataloader:
-            x_train = sample['xs'].reshape((-1, x_dim**2))
+            x_train = sample['xs'].reshape((-1, c*x_dim**2))
             y_train = np.asarray(
                 [i // train_shot for i in range(train_shot * way)])
-            x_test = sample['xq'].reshape((-1, x_dim**2))
+            x_test = sample['xq'].reshape((-1, c*x_dim**2))
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
 
@@ -121,25 +125,49 @@ if __name__ == "__main__":
     torch.manual_seed(2019)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+    '''
     config = {
-        'dataset': 'mnist',
+        'dataset': 'cifar10',
         'way': 10,
         'train_shot': 1,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 2,
+        'epochs': 1,
         'trials': 100,
         'silent': True,
         'split': 'test',
         'in_alphabet': False,
         'add_rotations': False,
-        'x_dim': 28,
-        'z_dim': 784,
+        'x_dim': 32,
+        'z_dim': 1024,
         'initialization': 'orthogonal',
         'optimizer': 'adam',
         'lr': 0.001,
+        'channels': 3,
+        'gpu': 1
+    }
+    '''
+
+    config = {
+        'dataset': 'mnist',
+        'way': 10,
+        'train_shot': 10,
+        'test_shot': 1,
+        'loss': nn.MSELoss(reduction='none'),
+        'epochs': 1,
+        'trials': 100,
+        'silent': True,
+        'split': 'test',
+        'in_alphabet': False,
+        'add_rotations': True,
+        'x_dim': 28,
+        'z_dim': 3000,
+        'initialization': 'xavier_normal',
+        'optimizer': 'adam',
+        'lr': 0.0005,
         'channels': 1,
         'gpu': 0
     }
+
     mean_accuracy = run_experiment(config)
     print("Mean accuracy: ", mean_accuracy)

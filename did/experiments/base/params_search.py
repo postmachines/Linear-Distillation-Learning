@@ -9,8 +9,6 @@ from torch import nn
 from train import run_experiment
 
 if __name__ == "__main__":
-    np.random.seed(2019)
-    torch.manual_seed(2019)
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
