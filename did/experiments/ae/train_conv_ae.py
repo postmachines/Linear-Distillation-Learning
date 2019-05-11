@@ -7,8 +7,8 @@ import torch.nn as nn
 from torchvision.utils import save_image
 
 from did.data.utils import get_augmented_images
-from did.data.omniglot import get_data_loader, get_episodic_loader
-from did.models import AEModel, ConvAutoEncoder
+from did.data import get_episodic_loader, get_data_loader
+from did.models import ConvAutoEncoder, AEModel
 
 
 def augment_data(support):
@@ -22,7 +22,8 @@ def augment_data(support):
 
     """
     w, h = support.shape[-1], support.shape[-1]
-    x_train = sample['xs'].squeeze().reshape((-1, w, h))
+    c = support.shape[2]
+    x_train = support.squeeze().reshape((-1, c, w, h))
     y_train = [i // train_shot for i in range(train_shot * way)]
 
     # Shis should be done in preprocessing step
@@ -37,31 +38,34 @@ def augment_data(support):
 
     x_aug = np.array(imgs_aug, np.float32)
     y_aug = np.array(y_aug)
+
     return x_aug, y_aug
 
 
-def train(rnd, loss_func, train_loader, epoch=0, silent=False):
-    for batch_i, (x, y) in enumerate(train_loader):
-        #x = x.squeeze().to(device)
-        x = x.to(device)
-        y = y.to(device)
+def train(rnd, loss_func, train_loader, epochs, silent=False):
+    rnd.train()
+    for epoch in range(epochs):
+        for batch_i, (x, y) in enumerate(train_loader):
+            #x = x.squeeze().to(device)
+            x = x.to(device)
+            y = y.to(device)
 
-        # Activate predictor for the needed class
-        rnd.activate_predictor(class_=y.item())
+            # Activate predictor for the needed class
+            rnd.activate_predictor(class_=y.item())
 
-        predictor_feature, target_feature = rnd(x)
-        predictor_feature = predictor_feature.view(-1, 1)
-        target_feature = target_feature.view(-1, 1)
-        loss = loss_func(predictor_feature, target_feature).mean()
-        optimizer = rnd.get_optimizer(y.item())
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            predictor_feature, target_feature = rnd(x)
+            predictor_feature = predictor_feature.view(-1, 1)
+            target_feature = target_feature.view(-1, 1)
+            loss = loss_func(predictor_feature, target_feature).mean()
+            optimizer = rnd.get_optimizer(y.item())
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        if batch_i % 100 == 0 and not silent:
-            msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
-            print(msg.format(epoch + 1, batch_i, len(train_loader),
-                             batch_i / len(train_loader) * 100, loss.item()))
+            if batch_i % 100 == 0 and not silent:
+                msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
+                print(msg.format(epoch + 1, batch_i, len(train_loader),
+                                 batch_i / len(train_loader) * 100, loss.item()))
 
 
 def test(rnd, test_loader, silent=False):
@@ -88,28 +92,33 @@ def test(rnd, test_loader, silent=False):
     return acc
 
 
-def train_ae(img_dir='did/experiments/ae/conv_ae_images',
+def train_ae(config, img_dir='did/experiments/ae/conv_ae_images',
              save_path='did/experiments/ae/ae_cnn.pt'):
+
     # Create directory for images
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
 
     # Pretrain AE
-    n_epochs = 100
+    w = h = config['x_dim']
+    c = config['channels']
+    n_epochs = 30
     batch_size = 128
     lr = 0.001
 
-    ae_model = ConvAutoEncoder()
+    ae_model = ConvAutoEncoder(n_channels=c)
     ae_model.to(device)
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(ae_model.parameters(),
                                  lr=lr, weight_decay=1e-5)
 
-    dataloader = get_data_loader(split="train", batch_size=batch_size)
+    dataloader = get_data_loader(dataset=config['dataset'],
+                                 split='train',
+                                 batch_size=batch_size)
     for epoch in range(n_epochs):
         losses = []
-        for img in dataloader:
-            img = img.cuda().unsqueeze(1)
+        for x, y in dataloader:
+            img = x.cuda()#.unsqueeze(1)
 
             # Forward
             output = ae_model(img)
@@ -126,17 +135,17 @@ def train_ae(img_dir='did/experiments/ae/conv_ae_images',
               .format(epoch + 1, n_epochs, np.mean(losses)))
 
         if epoch % 1 == 0:
-            print("Shape: ", output.shape, output.cpu().shape)
-            pic = to_img(output.cpu().data)
-            pic_orig = to_img(img.cpu().data)
-            save_image(pic_orig, f'{img_dir}/image_{epoch}_orig.png')
-            save_image(pic, f'{img_dir}/image_{epoch}.png')
+            pic = to_img(output.cpu().data, c, w, h)
+            pic_orig = to_img(img.cpu().data, c, w, h)
+            epoch_str = "0"*(4-len(str(epoch))) + str(epoch)
+            save_image(pic_orig, f'{img_dir}/image_{epoch_str}_orig.png')
+            save_image(pic, f'{img_dir}/image_{epoch_str}.png')
 
     torch.save(ae_model, save_path)
 
 
-def to_img(x):
-    x = x.view(x.size(0), 1, 28, 28)
+def to_img(x, c=1, w=28, h=28):
+    x = x.view(x.size(0), c, w, h)
     return x
 
 
@@ -145,29 +154,38 @@ if __name__ == "__main__":
     torch.manual_seed(2019)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    # Pretrain AE
-    save_path = 'did/experiments/ae/ae_cnn.pt'
-    #train_ae(save_path=save_path)
-    ae_model = torch.load(save_path)
-
     config = {
-        'way': 5,
-        'train_shot': 5,
+        'dataset': 'cifar10',
+        'way': 10,
+        'epochs': 3,
+        'train_shot': 10,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'data_dim': 28,
-        'trials': 100,
+        'x_dim': 32,
+        'channels': 3,
+        'trials': 10,
         'silent': True,
         'split': 'test',
         'add_rotations': True,
-        'in_alphabet': True
+        'in_alphabet': True,
+        'gpu': 1
     }
+
+    # Pretrain AE
+    save_path = 'did/experiments/ae/ae_cnn.pt'
+    #train_ae(config, save_path=save_path)
+
+    ae_model = torch.load(save_path)
+
+    dataset = config['dataset']
     way = config['way']
     train_shot = config['train_shot']
     test_shot = config['test_shot']
     mse_loss = config['loss']
     trials = config['trials']
-    w = h = config['data_dim']
+    w = h = config['x_dim']
+    epochs = config['epochs']
+    c = config['channels']
     silent = config['silent']
     split = config['split']
     in_alphabet = config['in_alphabet']
@@ -176,21 +194,22 @@ if __name__ == "__main__":
     accs = []
     for _ in tqdm(range(trials)):
 
-        data = get_episodic_loader(way, train_shot, test_shot,
+        data = get_episodic_loader(dataset, way, train_shot, test_shot,
                                    split=split, add_rotations=add_rotations,
                                    in_alphabet=in_alphabet)
 
-        model = AEModel(way, ae=ae_model, ae_dim=32, cnn=True)
+        model = AEModel(way, ae=ae_model, ae_dim=384, w=w, h=h, c=c, cnn=True)
         model.to(device)
 
         for sample in data:
             support = sample['xs']
             query = sample['xq']
 
-            x_train, y_train = augment_data(support)
-            x_train = x_train.reshape((-1, w * h))
+            x_train = support.squeeze().reshape((-1, c, w, h))
+            y_train = [i // train_shot for i in range(train_shot * way)]
 
-            x_test = sample['xq'].reshape((-1, w * h))
+            #x_train, y_train = augment_data(support)
+            x_test = sample['xq']#.reshape((-1, w * h))
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
 
@@ -207,8 +226,8 @@ if __name__ == "__main__":
             samples_train = list(zip(x_train[inds], y_train[inds]))
             samples_test = list(zip(x_test, y_test))
 
-            train(model, loss_func=mse_loss, train_loader=samples_train,
-                  silent=silent)
+            train(model, loss_func=mse_loss, train_loader=samples_train, epochs=epochs, silent=silent)
             accs.append(test(model, samples_test, silent=silent))
 
     print("Mean accuracy: ", np.mean(accs))
+    

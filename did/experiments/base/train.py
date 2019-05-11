@@ -125,15 +125,14 @@ if __name__ == "__main__":
     torch.manual_seed(2019)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    '''
     config = {
         'dataset': 'cifar10',
-        'way': 10,
-        'train_shot': 1,
+        'way': 2,
+        'train_shot': 10,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
         'epochs': 1,
-        'trials': 100,
+        'trials': 10,
         'silent': True,
         'split': 'test',
         'in_alphabet': False,
@@ -145,28 +144,6 @@ if __name__ == "__main__":
         'lr': 0.001,
         'channels': 3,
         'gpu': 1
-    }
-    '''
-
-    config = {
-        'dataset': 'mnist',
-        'way': 10,
-        'train_shot': 10,
-        'test_shot': 1,
-        'loss': nn.MSELoss(reduction='none'),
-        'epochs': 1,
-        'trials': 100,
-        'silent': True,
-        'split': 'test',
-        'in_alphabet': False,
-        'add_rotations': True,
-        'x_dim': 28,
-        'z_dim': 3000,
-        'initialization': 'xavier_normal',
-        'optimizer': 'adam',
-        'lr': 0.0005,
-        'channels': 1,
-        'gpu': 0
     }
 
     mean_accuracy = run_experiment(config)
