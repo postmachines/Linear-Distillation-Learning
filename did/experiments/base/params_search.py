@@ -7,6 +7,7 @@ import torch
 from torch import nn
 
 from train import run_experiment
+from train_full_test import run_experiment_full_test
 
 if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
@@ -15,22 +16,29 @@ if __name__ == "__main__":
         'dataset': ['omniglot'],
         'epochs': [1, 2, 3],
         'way': [10],
-        'train_shot': [1, 3, 5, 10],
+        'train_shot': [1, 5, 10],
         'test_shot': [1],
         'x_dim': [28], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
-        'z_dim': [50, 100, 200, 300, 500, 600, 784, 1000, 2000, 3000],
-        'optimizer': ['adam', 'adadelta', 'sgd'],
+        'z_dim': [100, 200, 300, 500, 600, 784, 1000, 2000],
+        'optimizer': ['adam', 'adadelta'],
         'lr': [0.01, 0.001, 0.0005],
         'initialization': ['xavier_normal'],
         'channels': [1],
         'loss': [nn.MSELoss(reduction='none')],
-        'trials': [100],
+        'trials': [50],
         'silent': [True],
         'split': ['test'],
         'in_alphabet': [False],
         'add_rotations': [True],
-        'gpu': [0]
+        'gpu': [0],
+        'test_batch': [2000],
+        'full_test': [True]
     }
+
+    if configs['full_test']:
+        experiment_func = run_experiment_full_test
+    else:
+        experiment_func = run_experiment
 
     # Create grid of parameters
     keys, values = zip(*configs.items())
@@ -51,7 +59,7 @@ if __name__ == "__main__":
         print(f"Configuration: ", param)
         print(f"Progress {i+1}/{len(param_grid)}. Estimated time until end: {time_estimate} min")
         time_start = time()
-        mean_accuracy = run_experiment(config=param)
+        mean_accuracy = experiment_func(config=param)
         conf_durations.append(time() - time_start)
         df = pd.read_csv(res_path)
         df = df.append(pd.Series({**param, **{'accuracy': mean_accuracy,
