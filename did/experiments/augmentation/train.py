@@ -84,6 +84,10 @@ def augment_data(support, way, train_shot):
 
 
 def run_experiment(config):
+    np.random.seed(2019)
+    torch.manual_seed(2019)
+
+
     dataset = config['dataset']
     way = config['way']
     train_shot = config['train_shot']
@@ -136,8 +140,6 @@ def run_experiment(config):
             # print("Train: ", x_train.shape, y_train.shape)
             # print("Test: ", x_test.shape, y_test.shape)
 
-            print("TraiN: ", x_train.shape)
-
             inds = np.random.permutation(x_train.shape[0])
             samples_train = list(zip(x_train[inds], y_train[inds]))
             samples_test = list(zip(x_test, y_test))
@@ -150,9 +152,6 @@ def run_experiment(config):
 
 
 if __name__ == "__main__":
-    np.random.seed(2019)
-    torch.manual_seed(2019)
-
     config = {
         'dataset': 'cifar10',
         'way': 2,

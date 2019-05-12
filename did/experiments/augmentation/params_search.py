@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 from torch import nn
 
-from simple_augmentation import run_experiment
+from train import run_experiment
 
 
 if __name__ == "__main__":
@@ -15,18 +15,20 @@ if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
+        'dataset': ['omniglot'],
         'way': [5],
-        'train_shot': [1, 3, 5, 10],
+        'epochs': [1, 2, 3],
+        'train_shot': [1, 5, 10],
         'test_shot': [1],
         # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
         'x_dim': [28],
-        'z_dim': [50, 100, 200, 300, 500, 600, 784, 1000, 2000],
-        'optimizer': ['adam', 'adadelta', 'sgd'],
+        'z_dim': [100, 300, 500, 600, 784, 1000, 2000],
+        'optimizer': ['adam', 'adadelta'],
         'lr': [0.01, 0.001, 0.0005],
         'initialization': ['xavier_normal'],
         'channels': [1],
         'loss': [nn.MSELoss(reduction='none')],
-        'trials': [100],
+        'trials': [50],
         'silent': [True],
         'split': ['test'],
         'in_alphabet': [False],
@@ -39,7 +41,7 @@ if __name__ == "__main__":
     param_grid = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
     # Create resulting file if necessary
-    res_path = "did/experiments/augmentation/results.csv"
+    res_path = "did/experiments/augmentation/results_aug.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
