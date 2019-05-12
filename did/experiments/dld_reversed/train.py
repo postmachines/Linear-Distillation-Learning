@@ -56,6 +56,10 @@ def preprocess_data(data):
 
 
 def run_experiment(config):
+    np.random.seed(2019)
+    torch.manual_seed(2019)
+
+    dataset = config['dataset']
     way = config['way']
     train_shot = config['train_shot']
     test_shot = config['test_shot']
@@ -77,12 +81,12 @@ def run_experiment(config):
 
     accs = []
     for _ in tqdm(range(trials)):
-        dataloader = get_episodic_loader(way, train_shot, test_shot, x_dim,
+        dataloader = get_episodic_loader(dataset, way, train_shot, test_shot, x_dim,
                                          split=split,
                                          add_rotations=add_rotations,
                                          in_alphabet=in_alphabet)
 
-        model = DLDReversed(way, in_dim=x_dim**2, out_dim=z_dim, opt=optimizer,
+        model = DLDReversed(way, in_dim=x_dim**2, z_dim=z_dim, opt=optimizer,
                          lr=lr, initialization=initialization)
         model.to(device)
 
@@ -117,11 +121,10 @@ def run_experiment(config):
 
 
 if __name__ == "__main__":
-    np.random.seed(2019)
-    torch.manual_seed(2019)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     config = {
+        'dataset': 'omniglot',
         'way': 5,
         'train_shot': 1,
         'test_shot': 1,

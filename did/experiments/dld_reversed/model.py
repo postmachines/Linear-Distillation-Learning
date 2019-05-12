@@ -10,12 +10,12 @@ class DLDReversed(nn.Module):
     initialized random nework and N_CLASSES linear predictor networks. As a
     result we have N_CLASSES optimizers each for its predictor.
     """
-    def __init__(self, n_classes, in_dim=784, out_dim=784, opt='adam', lr=0.001,
+    def __init__(self, n_classes, in_dim=784, z_dim=784, opt='adam', lr=0.001,
                  initialization='orthogonal'):
         super(DLDReversed, self).__init__()
 
         self.activated_predictor = None
-        self.target = nn.Sequential(nn.Linear(in_dim, out_dim))
+        self.target = nn.Sequential(nn.Linear(in_dim, z_dim))
         self.predictors = {}
         self.optimizers = {}
 
@@ -33,7 +33,7 @@ class DLDReversed(nn.Module):
 
         for c in range(n_classes):
             self.predictors[f'class_{c}'] = nn.Sequential(
-                nn.Linear(in_dim, out_dim)
+                nn.Linear(z_dim, in_dim)
             )
             self.optimizers[f'class_{c}'] = \
                 opt(self.predictors[f'class_{c}'].parameters(), lr)

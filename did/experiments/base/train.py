@@ -126,7 +126,7 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     config = {
-        'dataset': 'cifar10',
+        'dataset': 'omniglot',
         'way': 2,
         'train_shot': 10,
         'test_shot': 1,
