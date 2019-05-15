@@ -9,19 +9,20 @@ from torch import nn
 from train import run_experiment
 from train_full_test import run_experiment_full_test
 
+
 if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
-        'dataset': ['omniglot'],
+        'dataset': ['mnist'],
         'epochs': [1, 2, 3],
         'way': [10],
         'train_shot': [1, 5, 10],
         'test_shot': [1],
         'x_dim': [28], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
-        'z_dim': [100, 200, 300, 500, 600, 784, 1000, 2000],
+        'z_dim': [200, 300, 500, 600, 784, 1000, 2000],
         'optimizer': ['adam', 'adadelta'],
-        'lr': [0.01, 0.001, 0.0005],
+        'lr': [0.01, 0.001],
         'initialization': ['xavier_normal'],
         'channels': [1],
         'loss': [nn.MSELoss(reduction='none')],
@@ -45,7 +46,7 @@ if __name__ == "__main__":
     param_grid = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
     # Create resulting file if necessary
-    res_path = "did/experiments/base/results.csv"
+    res_path = "did/experiments/base/results_mnist.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
