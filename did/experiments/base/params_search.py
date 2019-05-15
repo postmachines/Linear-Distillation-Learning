@@ -14,10 +14,10 @@ if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
-        'dataset': ['mnist'],
-        'epochs': [3],
-        'way': [10],
-        'train_shot': [1, 10, 50, 100, 200, 300],
+        'dataset': ['omniglot'],
+        'epochs': [10, 3],
+        'way': [3, 5, 10],
+        'train_shot': [1, 3, 5, 10],
         'test_shot': [1],
         'x_dim': [28], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
         'z_dim': [784, 2000],
@@ -31,13 +31,13 @@ if __name__ == "__main__":
         'split': ['test'],
         'in_alphabet': [False],
         'add_rotations': [True],
-        'gpu': [0],
+        'gpu': [1],
         'test_batch': [2000],
-        'full_test': [True],
+        'full_test': [False],
         'save_data': [False]
     }
 
-    if configs['full_test']:
+    if configs['full_test'][0]:
         experiment_func = run_experiment_full_test
     else:
         experiment_func = run_experiment
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     param_grid = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
     # Create resulting file if necessary
-    res_path = "did/experiments/base/results_mnist_big.csv"
+    res_path = "did/experiments/base/results_omni.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
