@@ -15,25 +15,26 @@ if __name__ == "__main__":
 
     configs = {
         'dataset': ['mnist'],
-        'epochs': [1, 2, 3],
+        'epochs': [3],
         'way': [10],
-        'train_shot': [1, 5, 10],
+        'train_shot': [1, 10, 50, 100, 200, 300],
         'test_shot': [1],
         'x_dim': [28], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
-        'z_dim': [200, 300, 500, 600, 784, 1000, 2000],
-        'optimizer': ['adam', 'adadelta'],
-        'lr': [0.01, 0.001],
+        'z_dim': [784, 2000],
+        'optimizer': ['adam'],
+        'lr': [1e-3, 1e-4, 5e-5, 1e-5, 5e-6, 1e-6, 5e-7],
         'initialization': ['xavier_normal'],
         'channels': [1],
         'loss': [nn.MSELoss(reduction='none')],
-        'trials': [50],
+        'trials': [100],
         'silent': [True],
         'split': ['test'],
         'in_alphabet': [False],
         'add_rotations': [True],
         'gpu': [0],
         'test_batch': [2000],
-        'full_test': [True]
+        'full_test': [True],
+        'save_data': [False]
     }
 
     if configs['full_test']:
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     param_grid = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
     # Create resulting file if necessary
-    res_path = "did/experiments/base/results_mnist.csv"
+    res_path = "did/experiments/base/results_mnist_big.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
