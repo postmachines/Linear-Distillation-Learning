@@ -11,7 +11,7 @@ class RNDModel(nn.Module):
     result we have N_CLASSES optimizers each for its predictor.
     """
     def __init__(self, n_classes, in_dim=784, out_dim=784, opt='adam', lr=0.001,
-                 initialization='orthogonal'):
+                 initialization='orthogonal', dld=False):
         super(RNDModel, self).__init__()
 
         self.activated_predictor = None
@@ -32,9 +32,15 @@ class RNDModel(nn.Module):
             raise ValueError(f"Unknown optimizer: {opt}")
 
         for c in range(n_classes):
-            self.predictors[f'class_{c}'] = nn.Sequential(
-                nn.Linear(in_dim, out_dim)
-            )
+            if dld:
+                self.predictors[f'class_{c}'] = nn.Sequential(
+                    nn.Linear(in_dim, 2000),
+                    nn.Linear(2000, out_dim)
+                )
+            else:
+                self.predictors[f'class_{c}'] = nn.Sequential(
+                    nn.Linear(in_dim, out_dim),
+                )
             self.optimizers[f'class_{c}'] = \
                 opt(self.predictors[f'class_{c}'].parameters(), lr)
 

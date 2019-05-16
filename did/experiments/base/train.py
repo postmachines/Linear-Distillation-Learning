@@ -77,6 +77,7 @@ def run_experiment(config):
     lr = config['lr']
     initialization = config['initialization']
     gpu = config['gpu']
+    dld = config['dld']
 
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
@@ -88,7 +89,7 @@ def run_experiment(config):
 
     for _ in tqdm(range(trials)):
         model = RNDModel(way, in_dim=c*x_dim**2, out_dim=z_dim, opt=optimizer,
-                         lr=lr, initialization=initialization)
+                         lr=lr, initialization=initialization, dld=dld)
         model.to(device)
 
         for sample in dataloader:
