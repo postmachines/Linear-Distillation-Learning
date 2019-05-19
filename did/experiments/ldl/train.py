@@ -11,28 +11,55 @@ import torchvision
 from model import LDL
 
 
-def train_target_epoch(epoch, model, train_loader, loss_func, device, silent=True):
+def train_target_epoch(epoch, model, data_loader, loss_func, device, silent=True):
+    """
+    Target target network for single epoch.
 
-    for batch_i, (x, y) in enumerate(train_loader):
+    Args:
+        epoch (int): current epoch
+        model (LDL): LDL model object
+        data_loader (itertable): data loader
+        loss_func (func): pytorch loss function
+        device (torch.Device): device on which to train
+        silent (bool): if True print nothing.
+
+    Returns: None
+
+    """
+    n = len(data_loader)
+    for batch_i, (x, y) in enumerate(data_loader):
         x = x.view(1, x.shape[0]).to(device)
         y = y.to(device)
 
+        # Activate predictor corresponding to the true label
         model.activate_predictor(class_=y.item())
 
-        predictor_feature, target_feature = model(x)
-        loss = loss_func(target_feature, predictor_feature).mean()
+        predictor_z, target_z = model(x)
+        loss = loss_func(target_z, predictor_z).mean()
+
+        # Update target weights
         optimizer = model.optimizer_target
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        if batch_i % 1000 == 0 and not silent:
+        if not silent and batch_i % 1000 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
-            print(msg.format(epoch+1, batch_i, len(train_loader),
-                         batch_i/len(train_loader)*100, loss.item()))
+            print(msg.format(epoch+1, batch_i, n, batch_i/n*100, loss.item()))
 
 
-def test_target_epoch(model, test_loader, device):
+def test_target(model, test_loader, device, silent=True):
+    """
+    Test target network
+    Args:
+        model (LDL object): object of model to train
+        test_loader (iterable): data loader
+        device (torch.Device): device to move data to
+        silent (bool): if True prints nothing
+
+    Returns: None
+
+    """
     model.eval()
     correct = 0
     with torch.no_grad():
@@ -45,40 +72,76 @@ def test_target_epoch(model, test_loader, device):
             class_min_mse = np.argmin(mses)
             if class_min_mse == y.item():
                 correct += 1
-        print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i+1, 100. * correct / (batch_i+1)))
+        if not silent:
+            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i+1, 100. * correct / (batch_i+1)))
 
 
-def train_predictors_epoch(trial, epoch, model, train_loader, loss_func, device, silent=True):
+def train_predictors_epoch(model, data_loader, loss_func, device, trial,
+                           epoch, silent=True):
+    """
+    Train predictors networks for single epoch.
+
+    Args:
+        model (LDL): object of model to train
+        data_loader (iterable): data loader of (x, y) samples
+        loss_func (func): torch loss function
+        device (torch.Device): device to move data to
+        trial (int): number of trial (for logging)
+        epoch (int): number of current epoch (for logging)
+        silent (bool): if true outputs nothing
+
+    Returns (list): list of lists of [trial_n, 'train', epoch_n, sample_n, predictor_n, loss]
+
+    """
+
+    n = len(data_loader)
     results_data = []  # trial | split | epoch | sample | predictor | value
-    for batch_i, (x, y) in enumerate(train_loader):
+    for batch_i, (x, y) in enumerate(data_loader):
         x = x.view(1, x.shape[0]).to(device)
         y = y.to(device)
 
+        # Activate corresponding predictor and get corresponding optimizer
         model.activate_predictor(class_=y.item())
-
-        predictor_feature, target_feature = model(x)
-        loss = loss_func(predictor_feature, target_feature).mean()
         optimizer = model.get_optimizer(y.item())
+
+        # Forward sample and calucate loss
+        predictor_z, target_z = model(x)
+        loss = loss_func(predictor_z, target_z).mean()
+
+        # Backpropagate gradients
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
+        # Logging info
         results_data.append(
             [trial, "train", epoch, batch_i, y.item(), loss.item()])
 
-        if batch_i % 100 == 0 and not silent:
+        if not silent and batch_i % 100 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
-            print(msg.format(epoch+1, batch_i, len(train_loader),
-                         batch_i/len(train_loader)*100, loss.item()))
+            print(msg.format(epoch+1, batch_i, n, batch_i/n*100, loss.item()))
 
     return results_data
 
 
-def test_predictors_epoch(model, test_loader, device, silent=False, test_batch=1000):
+def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
+    """
+    Get accuracy of the model's predictors.
+
+    Args:
+        model (LDL): object of model to get predicts from
+        data_loader (iterable): data loader of form (x, y) samples
+        device (torch.Device): device to move data to
+        test_batch (int): batch size while testing
+        silent (bool): if True outputs nothing
+
+    Returns:
+
+    """
     model.eval()
     correct = 0
     with torch.no_grad():
-        for batch_i, (x, y) in enumerate(test_loader):
+        for batch_i, (x, y) in enumerate(data_loader):
             x = x.view(-1, 784).to(device)
             y = y.to(device)
 
@@ -98,15 +161,43 @@ def test_predictors_epoch(model, test_loader, device, silent=False, test_batch=1
             print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, 10000, 100. * acc))
     return acc
 
-def train(model, loss_func, train_loader, epochs, device, trial):
-    accs = []
+
+def train(model, loss_func, train_loader, epochs, device, trial, silent):
+    """
+    Train LDL for given number of epochs.
+
+    Args:
+        model (LDL): object of model to train
+        loss_func (func): torch loss function
+        train_loader (iterable): data loader
+        epochs (int): number epochs to train
+        device (torch.Device): device to move data to
+        trial (int): number of trial (for logging)
+        silent (bool): if True print nothing
+
+    Returns:
+
+    """
     results_data = []  # trial | split | epoch | sample | predictor | value
     model.train()
     for epoch in range(epochs):
         np.random.shuffle(train_loader)
 
-        train_target_epoch(epoch, model, train_loader, loss_func, device=device)
-        train_data = train_predictors_epoch(trial, epoch, model, train_loader, loss_func, device=device)
+        # (1) Train target
+        train_target_epoch(model=model,
+                           data_loader=train_loader,
+                           loss_func=loss_func,
+                           device=device,
+                           epoch=epoch,
+                           silent=silent)
+
+        # (2) Train predictors
+        train_data = train_predictors_epoch(model=model,
+                                            data_loader=train_loader,
+                                            loss_func=loss_func,
+                                            device=device, trial=trial,
+                                            epoch=epoch,
+                                            silent=silent)
         results_data += train_data
 
     return results_data
@@ -126,9 +217,8 @@ def run_experiment_full_test(config):
     x_dim = config['x_dim']
     z_dim = config['z_dim']
     c = config['channels']
-    optimizer = config['optimizer']
-    lr = config['lr']
-    initialization = config['initialization']
+    lr_predictor = config['lr_predictor']
+    lr_target = config['lr_target']
     gpu = config['gpu']
     test_batch = config['test_batch']
     save_data = config['save_data']
@@ -156,7 +246,11 @@ def run_experiment_full_test(config):
 
     results_data = [] # trial | split | epoch | sample | predictor | value
     for i_trial in tqdm(range(trials)):
-        model = LDL(10, 1e-4)
+        model = LDL(n_classes=way,
+                    in_dim=x_dim**2,
+                    out_dim=z_dim,
+                    lr_predictor=lr_predictor,
+                    lr_target=lr_target)
         model.to(device)
 
         # Select random shot
@@ -178,13 +272,22 @@ def run_experiment_full_test(config):
         inds = np.random.permutation(x_train.shape[0])
         samples_train = list(zip(x_train[inds], y_train[inds]))
 
-        # Train one epoch
-        train_trial_data = train(model, loss_func=mse_loss, train_loader=samples_train,
-                                 epochs=epochs, device=device, trial=i_trial)
+        # Train target + predictors for epoch
+        train_trial_data = train(model=model,
+                                 loss_func=mse_loss,
+                                 train_loader=samples_train,
+                                 epochs=epochs,
+                                 device=device,
+                                 trial=i_trial,
+                                 silent=silent)
         results_data += train_trial_data
 
         # Check accuracy
-        test_acc = test_predictors_epoch(model, test_data_loader, device=device, test_batch=test_batch)
+        test_acc = test_predictors(model=model,
+                                   data_loader=test_data_loader,
+                                   device=device,
+                                   test_batch=test_batch,
+                                   silent=silent)
         results_data.append([i_trial, "test", None, None, None, test_acc])
         accs.append(test_acc)
 
@@ -194,7 +297,8 @@ def run_experiment_full_test(config):
         fn = f"{fn_dir}/{datetime.datetime.now():%Y-%m-%d_%H:%M}"
         if not os.path.exists(fn_dir):
             os.makedirs(fn_dir)
-        pd.DataFrame(results_data, columns=["trial", "split", "epoch", "sample", "predictor", "loss/val"]).to_csv(fn+".csv", index=False)
+        cols = ["trial", "split", "epoch", "sample", "predictor", "loss/val"]
+        pd.DataFrame(results_data, columns=cols).to_csv(fn+".csv", index=False)
         with open(fn + "_config.txt", "w") as f:
             f.write(str(config))
 
@@ -202,9 +306,6 @@ def run_experiment_full_test(config):
 
 
 if __name__ == "__main__":
-    np.random.seed(2019)
-    torch.manual_seed(2019)
-
     config = {
         'dataset': 'mnist',
         'way': 10,
@@ -212,14 +313,13 @@ if __name__ == "__main__":
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
         'epochs': 10,
-        'trials': 10,
+        'trials': 1,
         'silent': True,
         'split': 'test',
         'x_dim': 28,
-        'z_dim': 784,
-        'initialization': 'xavier_normal',
-        'optimizer': 'adam',
-        'lr': 0.001,
+        'z_dim': 2000,
+        'lr_predictor': 1e-4,
+        'lr_target': 1e-4,
         'channels': 1,
         'gpu': 0,
         'test_batch': 2000,

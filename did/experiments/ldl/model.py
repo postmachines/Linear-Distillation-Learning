@@ -5,9 +5,9 @@ from torch.nn import init
 
 
 class Net(nn.Module):
-    def __init__(self):
+    def __init__(self, in_dim, out_dim):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(784, 2000, bias=False)
+        self.fc1 = nn.Linear(in_dim, out_dim, bias=False)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -15,31 +15,31 @@ class Net(nn.Module):
 
 
 class LDL(nn.Module):
-    def __init__(self, n_classes, lr=5e-6, tar_lr=5e-6, dim=784):
+    def __init__(self, n_classes, in_dim, out_dim, lr_predictor=5e-6, lr_target=5e-6, weight_decay=5e-7):
         super(LDL, self).__init__()
 
-        self.predictors = {}
-        self.optimizers = {}
+        # Current activated predictor
         self.activated_predictor = None
 
-        self.target = Net()
+        # Target network
+        self.target = Net(in_dim, out_dim)
+        self.optimizer_target = optim.Adam(self.target.parameters(),
+                                           lr=lr_target,
+                                           weight_decay=weight_decay)
 
-        self.optimizer_target = \
-            optim.Adam(self.target.parameters(), tar_lr, weight_decay=5e-7)
-
+        # Predictors
+        self.predictors = {}
+        self.optimizers = {}
         for c in range(n_classes):
-            self.predictors[f'class_{c}'] = Net()
+            self.predictors[f'class_{c}'] = Net(in_dim, out_dim)
 
             self.optimizers[f'class_{c}'] = \
-                optim.Adam(self.predictors[f'class_{c}'].parameters(), lr,
-                           weight_decay=5e-7)
+                optim.Adam(self.predictors[f'class_{c}'].parameters(),
+                           lr=lr_predictor,
+                           weight_decay=weight_decay)
 
+        # Orthogonal initialization
         for p in self.modules():
-            if isinstance(p, nn.Linear):
-                init.orthogonal_(p.weight)
-
-    def reinitialize_predictors(self):
-        for p in self.predictors:
             if isinstance(p, nn.Linear):
                 init.orthogonal_(p.weight)
 
