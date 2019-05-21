@@ -9,9 +9,44 @@ import torch.nn as nn
 import torchvision
 
 from model import LDL
+from did.data import get_episodic_loader
+from did.data.utils import get_augmented_images
 
 
-def train_target_epoch(epoch, model, data_loader, loss_func, device, silent=True):
+def augment_data(support, way, train_shot):
+    """
+    Augment data by elementary methods.
+
+    Args:
+        support (np.ndarray): data of shape [n_way, n_shot, channels, width, hight]
+
+    Returns (np.ndarray): data of shape [n_augmented, width, height]
+
+    """
+    w, h = support.shape[-1], support.shape[-1]
+    c = support.shape[2]
+    x_train = support.squeeze().reshape((-1, c, w, h))
+    y_train = [i // train_shot for i in range(train_shot * way)]
+
+    # Shis should be done in preprocessing step
+    imgs_aug = []
+    y_aug = []
+    for i_img in range(x_train.shape[0]):
+        img = x_train[i_img].detach().numpy()
+
+        augmented = get_augmented_images(img, shift=4, sigma=0.03)
+        imgs_aug += augmented
+        y_aug += [y_train[i_img]] * len(augmented)
+
+    x_aug = np.array(imgs_aug, np.float32)
+    y_aug = np.array(y_aug)
+
+    return x_aug, y_aug
+
+
+
+def train_target_epoch(epoch, model, data_loader, loss_func, device,
+                       silent=True):
     """
     Target target network for single epoch.
 
@@ -45,7 +80,8 @@ def train_target_epoch(epoch, model, data_loader, loss_func, device, silent=True
 
         if not silent and batch_i % 1000 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
-            print(msg.format(epoch+1, batch_i, n, batch_i/n*100, loss.item()))
+            print(msg.format(epoch + 1, batch_i, n, batch_i / n * 100,
+                             loss.item()))
 
 
 def test_target(model, test_loader, device, silent=True):
@@ -65,15 +101,19 @@ def test_target(model, test_loader, device, silent=True):
     with torch.no_grad():
         for batch_i, (x, y) in enumerate(test_loader):
             x = x.view(x.shape[0], -1)
-            predict_next_state_feature, target_next_state_feature = model.predict(x.to(device))
+            predict_next_state_feature, target_next_state_feature = model.predict(
+                x.to(device))
             mses = []
             for predict in predict_next_state_feature:
-                mses.append((predict - target_next_state_feature).pow(2).sum(1) / 2)
+                mses.append(
+                    (predict - target_next_state_feature).pow(2).sum(1) / 2)
             class_min_mse = np.argmin(mses)
             if class_min_mse == y.item():
                 correct += 1
         if not silent:
-            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i+1, 100. * correct / (batch_i+1)))
+            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i + 1,
+                                                       100. * correct / (
+                                                                   batch_i + 1)))
 
 
 def train_predictors_epoch(model, data_loader, loss_func, device, trial,
@@ -119,12 +159,14 @@ def train_predictors_epoch(model, data_loader, loss_func, device, trial,
 
         if not silent and batch_i % 100 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
-            print(msg.format(epoch+1, batch_i, n, batch_i/n*100, loss.item()))
+            print(msg.format(epoch + 1, batch_i, n, batch_i / n * 100,
+                             loss.item()))
 
     return results_data
 
 
-def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
+def test_predictors(model, data_loader, device, test_batch=1000,
+                    silent=True):
     """
     Get accuracy of the model's predictors.
 
@@ -140,25 +182,28 @@ def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
     """
     model.eval()
     correct = 0
+    n = len(data_loader)
     with torch.no_grad():
         for batch_i, (x, y) in enumerate(data_loader):
             x = x.view(-1, 784).to(device)
             y = y.to(device)
 
-            predict_next_state_feature, target_next_state_feature = model.predict(x)
+            predict_next_state_feature, target_next_state_feature = model.predict(
+                x)
 
             mses = []
             for predict in predict_next_state_feature:
                 mses.append(
                     (target_next_state_feature - predict).pow(2).sum(1) / 2)
-            mses_tensor = torch.Tensor(10, test_batch).to(device)
+            way = len(mses)
+            mses_tensor = torch.Tensor(way, test_batch).to(device)
             torch.cat(mses, out=mses_tensor)
-            mses_tensor = mses_tensor.view(10, test_batch)
+            mses_tensor = mses_tensor.view(way, test_batch)
             class_min_mse = torch.argmin(mses_tensor, dim=0)
             correct += torch.sum(torch.eq(y, class_min_mse)).item()
-        acc = correct / 10_000
+        acc = correct / n
         if not silent:
-            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, 10000, 100. * acc))
+            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, n, 100. * acc))
     return acc
 
 
@@ -203,7 +248,7 @@ def train(model, loss_func, train_loader, epochs, device, trial, silent):
     return results_data
 
 
-def run_experiment_full_test(config):
+def run_experiment(config):
     np.random.seed(2019)
     torch.manual_seed(2019)
 
@@ -222,75 +267,81 @@ def run_experiment_full_test(config):
     gpu = config['gpu']
     test_batch = config['test_batch']
     save_data = config['save_data']
+    test_shot = 1
+    split = config['split']
+    add_rotations = config['add_rotations']
+    in_alphabet = config['in_alphabet']
+    augmentation = config['augmentation']
 
-    device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
+    device = torch.device(
+        f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
     accs = []
 
-    train_data_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('data/MNIST/', train=True,
-                                   download=True,
-                                   transform=torchvision.transforms.ToTensor(),
-                       ),
-        batch_size=60000, shuffle=True)
-    test_data_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('data/MNIST/', train=False,
-                                   download=True,
-                                   transform=torchvision.transforms.ToTensor()),
-        batch_size=test_batch, shuffle=True
-    )
+    dataloader = get_episodic_loader(dataset, way, train_shot, test_shot,
+                                     x_dim,
+                                     split=split,
+                                     add_rotations=add_rotations,
+                                     in_alphabet=in_alphabet)
 
-    train_data = {}
-    for (x, y) in train_data_loader:
-        for i in range(10):
-            train_data[i] = x[y==i]
-
-    results_data = [] # trial | split | epoch | sample | predictor | value
+    results_data = []  # trial | split | epoch | sample | predictor | value
     for i_trial in tqdm(range(trials)):
-        model = LDL(n_classes=way,
-                    in_dim=x_dim**2,
-                    out_dim=z_dim,
-                    lr_predictor=lr_predictor,
-                    lr_target=lr_target)
-        model.to(device)
+        for sample in dataloader:
+            support, query = sample['xs'], sample['xq']
 
-        # Select random shot
-        x_train = []
-        y_train = []
-        for i in range(10):
-            inds = np.arange(train_data[i].shape[0])
-            np.random.shuffle(inds)
-            x_train.append(train_data[i][inds[:train_shot]])
-            y_train += [i] * train_shot
-        x_train = np.vstack(x_train)
-        y_train = np.asarray(y_train).reshape((-1, 1))
+            if augmentation:
+                x_train, y_train = augment_data(support, way, train_shot)
+                x_train = x_train.reshape((-1, c * x_dim ** 2))
 
-        # Convert data to tensors
-        x_train = torch.tensor(x_train).view(-1, c*x_dim**2)
-        y_train = torch.tensor(y_train)
+                x_test = query.reshape((-1, c * x_dim ** 2))
+                y_test = np.asarray(
+                    [i // test_shot for i in range(test_shot * way)])
+            else:
+                x_train = support.reshape((-1, c*x_dim**2))
+                y_train = np.asarray(
+                    [i // train_shot for i in range(train_shot * way)])
+                x_test = query.reshape((-1, c*x_dim**2))
+                y_test = np.asarray(
+                    [i // test_shot for i in range(test_shot * way)])
 
-        # Shuffle data
-        inds = np.random.permutation(x_train.shape[0])
-        samples_train = list(zip(x_train[inds], y_train[inds]))
+            x_train = torch.tensor(x_train)
+            y_train = torch.tensor(y_train)
+            x_test = torch.tensor(x_test)
+            y_test = torch.tensor(y_test)
 
-        # Train target + predictors for epoch
-        train_trial_data = train(model=model,
-                                 loss_func=mse_loss,
-                                 train_loader=samples_train,
-                                 epochs=epochs,
-                                 device=device,
-                                 trial=i_trial,
-                                 silent=silent)
-        results_data += train_trial_data
+            #print("Train: ", x_train.shape, y_train.shape)
+            #print("Test: ", x_test.shape, y_test.shape)
+            #print("Test data: ", y_test)
 
-        # Check accuracy
-        test_acc = test_predictors(model=model,
-                                   data_loader=test_data_loader,
-                                   device=device,
-                                   test_batch=test_batch,
-                                   silent=silent)
-        results_data.append([i_trial, "test", None, None, None, test_acc])
-        accs.append(test_acc)
+            inds = np.random.permutation(x_train.shape[0])
+            samples_train = list(zip(x_train[inds], y_train[inds]))
+            samples_test = list(zip(x_test, y_test))
+
+            model = LDL(n_classes=way,
+                        in_dim=x_dim ** 2,
+                        out_dim=z_dim,
+                        lr_predictor=lr_predictor,
+                        lr_target=lr_target)
+            model.to(device)
+
+            # Train target + predictors for epoch
+            train_trial_data = train(model=model,
+                                     loss_func=mse_loss,
+                                     train_loader=samples_train,
+                                     epochs=epochs,
+                                     device=device,
+                                     trial=i_trial,
+                                     silent=silent)
+            results_data += train_trial_data
+
+            # Check accuracy
+            test_acc = test_predictors(model=model,
+                                       data_loader=samples_test,
+                                       device=device,
+                                       test_batch=test_batch,
+                                       silent=silent)
+            results_data.append([i_trial, "test", None, None, None, test_acc])
+            accs.append(test_acc)
 
     # Save results to the file
     if save_data:
@@ -299,7 +350,8 @@ def run_experiment_full_test(config):
         if not os.path.exists(fn_dir):
             os.makedirs(fn_dir)
         cols = ["trial", "split", "epoch", "sample", "predictor", "loss/val"]
-        pd.DataFrame(results_data, columns=cols).to_csv(fn+".csv", index=False)
+        pd.DataFrame(results_data, columns=cols).to_csv(fn + ".csv",
+                                                        index=False)
         with open(fn + "_config.txt", "w") as f:
             f.write(str(config))
 
@@ -308,28 +360,32 @@ def run_experiment_full_test(config):
 
 if __name__ == "__main__":
     config = {
-        'dataset': 'mnist',
+        'dataset': 'omniglot',
         'way': 10,
         'train_shot': 10,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 10,
-        'trials': 1,
-        'silent': True,
+        'epochs': 3,
+        'trials': 10,
+        'silent': False,
         'split': 'test',
         'x_dim': 28,
-        'z_dim': 2000,
-        'lr_predictor': 1e-4,
-        'lr_target': 1e-4,
+        'z_dim': 784,
+        'lr_predictor': 1e-3,
+        'lr_target': 1e-3,
         'channels': 1,
         'gpu': 0,
-        'test_batch': 2000,
-        'save_data': True
+        'test_batch': 1,
+        'save_data': False,
+        'in_alphabet': False,
+        'add_rotations': True,
+        'augmentation': False
     }
 
     from time import time
+
     time_start = time()
-    mean_accuracy = run_experiment_full_test(config)
+    mean_accuracy = run_experiment(config)
     print("Elapsed: ", time() - time_start)
     print("Mean accuracy: ", mean_accuracy)
 

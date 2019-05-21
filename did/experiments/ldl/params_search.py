@@ -6,30 +6,34 @@ import pandas as pd
 import torch
 from torch import nn
 
-from train import run_experiment_full_test
+from train import run_experiment_full_test as run_experiment_mnist
+from train_omniglot import run_experiment as run_experiment_omniglot
 
 
 if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
-        'dataset': ['mnist'],
-        'way': [10],
-        'train_shot': [1, 10, 50, 200, 300],
+        'dataset': ['omniglot'],
+        'way': [5],
+        'train_shot': [1, 3, 5, 10],
         'test_shot': [1],
         'loss': [nn.MSELoss(reduction='none')],
-        'epochs': [3, 10],
+        'epochs': [10],
         'trials': [50],
         'silent': [True],
         'split': ['test'],
         'x_dim': [28],
         'z_dim': [784, 2000],
-        'lr_predictor': [1e-3, 1e-4, 1e-5],
-        'lr_target': [1e-3, 1e-4],
+        'lr_predictor': [1e-3],
+        'lr_target': [1e-3],
         'channels': [1],
-        'gpu': [0],
-        'test_batch': [2000],
-        'save_data': [False]
+        'test_batch': [1],
+        'save_data': [False],
+        'in_alphabet': [False],
+        'add_rotations': [True],
+        'augmentation': [False],
+        'gpu': [0]
     }
 
     # Create grid of parameters
@@ -37,10 +41,18 @@ if __name__ == "__main__":
     param_grid = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
     # Create resulting file if necessary
-    res_path = "did/experiments/ldl/results_mnist.csv"
+    ds_name = configs['dataset'][0]
+    res_path = f"did/experiments/ldl/results_{ds_name}.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
+
+    if ds_name == 'mnist':
+        exp_func = run_experiment_mnist
+    elif ds_name == 'omniglot':
+        exp_func = run_experiment_omniglot
+    else:
+        raise Exception("Unknown dataset!")
 
     conf_durations = []
     for i, param in enumerate(param_grid):
@@ -51,7 +63,7 @@ if __name__ == "__main__":
         print(f"Configuration: ", param)
         print(f"Progress {i+1}/{len(param_grid)}. Estimated time until end: {time_estimate} min")
         time_start = time()
-        mean_accuracy = run_experiment_full_test(config=param)
+        mean_accuracy = exp_func(config=param)
         conf_durations.append(time() - time_start)
         df = pd.read_csv(res_path)
         df = df.append(pd.Series({**param, **{'accuracy': mean_accuracy,

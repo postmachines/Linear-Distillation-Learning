@@ -16,19 +16,19 @@ if __name__ == "__main__":
 
     configs = {
         'dataset': ['omniglot'],
-        'way': [5],
-        'epochs': [1, 2, 3],
-        'train_shot': [1, 5, 10],
+        'way': [3, 5, 10],
+        'epochs': [10],
+        'train_shot': [1, 3, 5, 10],
         'test_shot': [1],
         # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
         'x_dim': [28],
-        'z_dim': [100, 300, 500, 600, 784, 1000, 2000],
-        'optimizer': ['adam', 'adadelta'],
-        'lr': [0.01, 0.001, 0.0005],
+        'z_dim': [784, 2000],
+        'optimizer': ['adam'],
+        'lr': [0.001],
         'initialization': ['xavier_normal'],
         'channels': [1],
         'loss': [nn.MSELoss(reduction='none')],
-        'trials': [50],
+        'trials': [100],
         'silent': [True],
         'split': ['test'],
         'in_alphabet': [False],
@@ -41,7 +41,8 @@ if __name__ == "__main__":
     param_grid = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
     # Create resulting file if necessary
-    res_path = "did/experiments/augmentation/results_aug.csv"
+    ds_name = configs['dataset'][0]
+    res_path = f"did/experiments/augmentation/{ds_name}_augmeted.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
