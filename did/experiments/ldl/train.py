@@ -85,7 +85,7 @@ def test_target(model, test_loader, device, silent=True):
 
 
 def train_predictors_epoch(model, data_loader, loss_func, device, trial,
-                           epoch, silent=True):
+                           epoch, silent=True, log_accuracy=True, test_data_loader=None):
     """
     Train predictors networks for single epoch.
 
@@ -124,6 +124,13 @@ def train_predictors_epoch(model, data_loader, loss_func, device, trial,
         # Logging info
         results_data.append(
             [trial, "train", epoch, batch_i, f"Student {y.item()}", loss.item()])
+
+        if log_accuracy:
+            acc = test_predictors(model, test_data_loader, device,
+                                  test_batch=2000,
+                                  silent=True)
+            results_data.append(
+                [trial, "test", epoch, batch_i, "Predictors", acc])
 
         if not silent and batch_i % 100 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
@@ -170,7 +177,7 @@ def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
     return acc
 
 
-def train(model, loss_func, train_loader, epochs, device, trial, silent):
+def train(model, loss_func, train_loader, epochs, device, trial, silent, test_data_loader=None):
     """
     Train LDL for given number of epochs.
 
@@ -208,7 +215,9 @@ def train(model, loss_func, train_loader, epochs, device, trial, silent):
                                             loss_func=loss_func,
                                             device=device, trial=trial,
                                             epoch=epoch,
-                                            silent=silent)
+                                            silent=silent,
+                                             log_accuracy=True,
+                                             test_data_loader=test_data_loader)
         results_data += train_data
 
     return results_data
@@ -291,7 +300,7 @@ def run_experiment_full_test(config):
                                  epochs=epochs,
                                  device=device,
                                  trial=i_trial,
-                                 silent=silent)
+                                 silent=silent, test_data_loader=test_data_loader)
         results_data += train_trial_data
 
         # Check accuracy
@@ -300,7 +309,8 @@ def run_experiment_full_test(config):
                                    device=device,
                                    test_batch=test_batch,
                                    silent=silent)
-        results_data.append([i_trial, "test", None, None, None, test_acc])
+        if False:
+            results_data.append([i_trial, "test", None, None, None, test_acc])
         accs.append(test_acc)
 
     # Save results to the file
@@ -322,11 +332,11 @@ if __name__ == "__main__":
     config = {
         'dataset': 'mnist',
         'way': 10,
-        'train_shot': 100,
+        'train_shot': 10,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 10,
-        'trials': 100,
+        'epochs': 5,
+        'trials': 1,
         'silent': True,
         'split': 'test',
         'x_dim': 28,
@@ -336,7 +346,8 @@ if __name__ == "__main__":
         'channels': 1,
         'gpu': 1,
         'test_batch': 2000,
-        'save_data': True
+        'save_data': True,
+        'log_accuracy': True
     }
 
     from time import time
