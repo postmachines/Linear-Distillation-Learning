@@ -185,7 +185,7 @@ def test_predictors(model, data_loader, device, test_batch=1000,
     n = len(data_loader)
     with torch.no_grad():
         for batch_i, (x, y) in enumerate(data_loader):
-            x = x.view(-1, 784).to(device)
+            x = x.view(-1, 32 * 32 * 3).to(device)
             y = y.to(device)
 
             predict_next_state_feature, target_next_state_feature = model.predict(
@@ -318,7 +318,7 @@ def run_experiment(config):
             samples_test = list(zip(x_test, y_test))
 
             model = LDL(n_classes=way,
-                        in_dim=x_dim ** 2,
+                        in_dim=x_dim ** 2 * c,
                         out_dim=z_dim,
                         lr_predictor=lr_predictor,
                         lr_target=lr_target)
@@ -360,20 +360,20 @@ def run_experiment(config):
 
 if __name__ == "__main__":
     config = {
-        'dataset': 'omniglot',
-        'way': 10,
-        'train_shot': 10,
-        'test_shot': 1,
+        'dataset': 'cifar10',
+        'way': 5,
+        'train_shot': 50,
+        'test_shot': 5,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 3,
+        'epochs': 10,
         'trials': 10,
         'silent': False,
         'split': 'test',
-        'x_dim': 28,
-        'z_dim': 784,
-        'lr_predictor': 1e-3,
-        'lr_target': 1e-3,
-        'channels': 1,
+        'x_dim': 32,
+        'z_dim': 32*32*3,
+        'lr_predictor': 1e-6,
+        'lr_target': 1e-6,
+        'channels': 3,
         'gpu': 0,
         'test_batch': 1,
         'save_data': False,

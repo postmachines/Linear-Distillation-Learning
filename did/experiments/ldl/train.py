@@ -11,7 +11,7 @@ import torchvision
 from model import LDL
 
 
-def train_target_epoch(epoch, model, data_loader, loss_func, device, silent=True):
+def train_target_epoch(epoch, model, data_loader, loss_func, device, trial, silent=True):
     """
     Target target network for single epoch.
 
@@ -21,11 +21,13 @@ def train_target_epoch(epoch, model, data_loader, loss_func, device, silent=True
         data_loader (itertable): data loader
         loss_func (func): pytorch loss function
         device (torch.Device): device on which to train
+        trial (int): number of trial
         silent (bool): if True print nothing.
 
     Returns: None
 
     """
+    results_data = []
     n = len(data_loader)
     for batch_i, (x, y) in enumerate(data_loader):
         x = x.view(1, x.shape[0]).to(device)
@@ -46,6 +48,12 @@ def train_target_epoch(epoch, model, data_loader, loss_func, device, silent=True
         if not silent and batch_i % 1000 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
             print(msg.format(epoch+1, batch_i, n, batch_i/n*100, loss.item()))
+
+        # Logging info
+        results_data.append(
+            [trial, "train", epoch, batch_i, 'Teacher', loss.item()])
+
+    return results_data
 
 
 def test_target(model, test_loader, device, silent=True):
@@ -115,7 +123,7 @@ def train_predictors_epoch(model, data_loader, loss_func, device, trial,
 
         # Logging info
         results_data.append(
-            [trial, "train", epoch, batch_i, y.item(), loss.item()])
+            [trial, "train", epoch, batch_i, f"Student {y.item()}", loss.item()])
 
         if not silent and batch_i % 100 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
@@ -183,16 +191,19 @@ def train(model, loss_func, train_loader, epochs, device, trial, silent):
     for epoch in range(epochs):
         np.random.shuffle(train_loader)
 
+        train_data = []
+
         # (1) Train target
-        train_target_epoch(model=model,
+        train_data += train_target_epoch(model=model,
                            data_loader=train_loader,
                            loss_func=loss_func,
                            device=device,
                            epoch=epoch,
+                                        trial=trial,
                            silent=silent)
 
         # (2) Train predictors
-        train_data = train_predictors_epoch(model=model,
+        train_data += train_predictors_epoch(model=model,
                                             data_loader=train_loader,
                                             loss_func=loss_func,
                                             device=device, trial=trial,
@@ -296,6 +307,7 @@ def run_experiment_full_test(config):
     if save_data:
         fn_dir = "results"
         fn = f"{fn_dir}/{datetime.datetime.now():%Y-%m-%d_%H:%M}"
+        print("Data will be saved into ", fn)
         if not os.path.exists(fn_dir):
             os.makedirs(fn_dir)
         cols = ["trial", "split", "epoch", "sample", "predictor", "loss/val"]
@@ -310,19 +322,19 @@ if __name__ == "__main__":
     config = {
         'dataset': 'mnist',
         'way': 10,
-        'train_shot': 10,
+        'train_shot': 100,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
         'epochs': 10,
-        'trials': 1,
+        'trials': 100,
         'silent': True,
         'split': 'test',
         'x_dim': 28,
         'z_dim': 2000,
-        'lr_predictor': 1e-4,
-        'lr_target': 1e-4,
+        'lr_predictor': 1e-3,
+        'lr_target': 1e-3,
         'channels': 1,
-        'gpu': 0,
+        'gpu': 1,
         'test_batch': 2000,
         'save_data': True
     }

@@ -162,10 +162,10 @@ if __name__ == "__main__":
     config = {
         'dataset': 'mnist',
         'way': 10,
-        'train_shot': 5,
+        'train_shot': 100,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 10,
+        'epochs': 3,
         'trials': 100,
         'silent': True,
         'split': 'test',
