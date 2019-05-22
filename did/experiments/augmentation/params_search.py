@@ -33,7 +33,7 @@ if __name__ == "__main__":
         'split': ['test'],
         'in_alphabet': [False],
         'add_rotations': [True],
-        'gpu': [1]
+        'gpu': [0]
     }
 
     # Create grid of parameters

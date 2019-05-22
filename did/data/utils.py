@@ -57,21 +57,15 @@ def gaussian_noise(img, mean=0, sigma=0.04):
 
 def rotate_img(img, angle, bg_patch=(5,5)):
     assert len(img.shape) <= 3, "Incorrect image shape"
-    rgb = len(img.shape) == 3
-    if rgb:
-        bg_color = np.mean(img[:bg_patch[0], :bg_patch[1], :], axis=(0,1))
-    else:
-        bg_color = np.mean(img[:bg_patch[0], :bg_patch[1]])
     img = rotate(img, angle, reshape=False)
-    mask = [img <= 0, np.any(img <= 0, axis=-1)][rgb]
-    img[mask] = bg_color
     return img
 
 
-def get_augmented_images(img, shift=15, sigma=10):
+def get_augmented_images(img, shift=4, sigma=0.03):
     angles = [-30, -20, -10, 0, 10, 20, 30]
     aug_imgs = []
+
     for angle in angles:
         for trans_dir in ['left', 'right', 'up', 'down']:
-            aug_imgs.append(gaussian_noise(translate(rotate_img(img, angle), trans_dir, shift), mean=0, sigma=sigma))
+            aug_imgs.append(gaussian_noise(translate(rotate_img(img, angle), shift, trans_dir), mean=0, sigma=sigma))
     return aug_imgs

@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     configs = {
         'dataset': ['omniglot'],
-        'way': [5],
+        'way': [5, 10],
         'train_shot': [1, 3, 5, 10],
         'test_shot': [1],
         'loss': [nn.MSELoss(reduction='none')],
@@ -32,8 +32,8 @@ if __name__ == "__main__":
         'save_data': [False],
         'in_alphabet': [False],
         'add_rotations': [True],
-        'augmentation': [False],
-        'gpu': [0]
+        'augmentation': [True],
+        'gpu': [1]
     }
 
     # Create grid of parameters
@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     # Create resulting file if necessary
     ds_name = configs['dataset'][0]
-    res_path = f"did/experiments/ldl/results_{ds_name}.csv"
+    res_path = f"did/experiments/ldl/results_{ds_name}_augmented_correct.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
@@ -56,6 +56,8 @@ if __name__ == "__main__":
 
     conf_durations = []
     for i, param in enumerate(param_grid):
+        if i < 15:
+            continue
         if len(conf_durations):
             time_estimate = (len(param_grid) - (i+1)) * np.mean(conf_durations) // 60
         else:

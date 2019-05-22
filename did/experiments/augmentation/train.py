@@ -131,6 +131,7 @@ def run_experiment(config):
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
 
+
             # break
             x_train = torch.tensor(x_train)
             y_train = torch.tensor(y_train)
@@ -153,23 +154,23 @@ def run_experiment(config):
 
 if __name__ == "__main__":
     config = {
-        'dataset': 'cifar10',
-        'way': 2,
+        'dataset': 'omniglot',
+        'way': 3,
         'train_shot': 10,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 2,
+        'epochs': 1,
         'trials': 10,
         'silent': True,
         'split': 'test',
         'in_alphabet': False,
         'add_rotations': True,
-        'x_dim': 32,
-        'z_dim': 1024,
+        'x_dim': 28,
+        'z_dim': 300,
         'initialization': 'xavier_normal',
         'optimizer': 'adam',
         'lr': 0.001,
-        'channels': 3,
+        'channels': 1,
         'gpu': 0
     }
     mean_accuracy = run_experiment(config)
