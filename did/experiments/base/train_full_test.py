@@ -11,7 +11,7 @@ import torchvision
 from did.models import RNDModel
 
 
-def train(rnd, loss_func, train_loader, epochs, silent=False, device=None, trial=None):
+def train(rnd, loss_func, train_loader, epochs, silent=False, device=None, trial=None, log_accuracy=True, test_data_loader=None):
     results_data = []  # trial | split | epoch | sample | predictor | value
 
     rnd.train()
@@ -32,6 +32,14 @@ def train(rnd, loss_func, train_loader, epochs, silent=False, device=None, trial
             optimizer.step()
 
             results_data.append([trial, "train", epoch, batch_i, y.item(), loss.item()])
+
+            if log_accuracy:
+                test_acc = test(rnd, test_data_loader,
+                                silent=silent,
+                                device=device,
+                                test_batch=2000)
+                results_data.append(
+                    [trial, "test", epoch, batch_i, y.item(), test_acc])
 
             if batch_i % 100 == 0 and not silent:
                 msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
@@ -87,6 +95,7 @@ def run_experiment_full_test(config):
     initialization = config['initialization']
     gpu = config['gpu']
     test_batch = config['test_batch']
+    save_data = config['save_data']
 
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
@@ -135,7 +144,7 @@ def run_experiment_full_test(config):
         samples_train = list(zip(x_train[inds], y_train[inds]))
 
         train_trial_data = train(model, loss_func=mse_loss, train_loader=samples_train, epochs=epochs,
-              silent=silent, device=device, trial=i_trial)
+              silent=silent, device=device, trial=i_trial, log_accuracy=True, test_data_loader=test_data_loader)
         results_data += train_trial_data
 
         test_acc = test(model, test_data_loader, silent=silent, device=device, test_batch=test_batch)
@@ -143,13 +152,15 @@ def run_experiment_full_test(config):
         accs.append(test_acc)
 
     # Save results to the file
-    fn_dir = "results"
-    fn = f"{fn_dir}/{datetime.datetime.now():%Y-%m-%d_%H:%M}"
-    if not os.path.exists(fn_dir):
-        os.makedirs(fn_dir)
-    pd.DataFrame(results_data, columns=["trial", "split", "epoch", "sample", "predictor", "loss/val"]).to_csv(fn+".csv", index=False)
-    with open(fn + "_config.txt", "w") as f:
-        f.write(str(config))
+    if save_data:
+        fn_dir = "results"
+        fn = f"{fn_dir}/{datetime.datetime.now():%Y-%m-%d_%H:%M}"
+        print("Results will be in ", fn)
+        if not os.path.exists(fn_dir):
+            os.makedirs(fn_dir)
+        pd.DataFrame(results_data, columns=["trial", "split", "epoch", "sample", "predictor", "loss/val"]).to_csv(fn+".csv", index=False)
+        with open(fn + "_config.txt", "w") as f:
+            f.write(str(config))
 
     return np.mean(accs)
 
@@ -162,11 +173,11 @@ if __name__ == "__main__":
     config = {
         'dataset': 'mnist',
         'way': 10,
-        'train_shot': 5,
+        'train_shot': 10,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 10,
-        'trials': 100,
+        'epochs': 5,
+        'trials': 1,
         'silent': True,
         'split': 'test',
         'x_dim': 28,
@@ -177,7 +188,8 @@ if __name__ == "__main__":
         'channels': 1,
         'gpu': 1,
         'test_batch': 2000,
-        'save_data': True
+        'save_data': True,
+        'log_accuracy': True,
     }
 
     from time import time

@@ -13,7 +13,8 @@ import torch.optim as optim
 from models import MLP
 
 
-def train(model, loss_func, train_loader, epochs, optimizer, lr, batch_size, silent=False, device=None, trial=None):
+def train(model, loss_func, train_loader, epochs, optimizer, lr, batch_size,
+          silent=False, device=None, trial=None, log_accuracy=True, test_data_loader=None):
     results_data = []  # trial | split | epoch | sample | value
 
     opt = optimizer.lower()
@@ -51,6 +52,12 @@ def train(model, loss_func, train_loader, epochs, optimizer, lr, batch_size, sil
             optimizer.step()
 
             results_data.append([trial, "train", epoch, batch_i,loss.item()])
+
+            if log_accuracy:
+                print("Logging Accuracy: ", log_accuracy)
+                test_acc = test(model, test_data_loader, silent=silent,
+                                device=device)
+                results_data.append([trial, "test", epoch, batch_i, test_acc])
 
             if batch_i % 100 == 0 and not silent:
                 msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
@@ -101,6 +108,8 @@ def run_experiment_full_test(config):
     nonlinearity = config['nonlinearity']
     gpu = config['gpu']
     test_batch = config['test_batch']
+    log_accuracy = config['log_accuracy']
+    save_data = config['save_data']
 
     device = torch.device(
         f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
@@ -152,23 +161,28 @@ def run_experiment_full_test(config):
                                  optimizer=optimizer, lr=lr,
                                  train_loader=samples_train, epochs=epochs,
                                  batch_size=batch_size, silent=silent,
-                                 device=device, trial=i_trial)
+                                 device=device, trial=i_trial,
+                                 log_accuracy=True,
+                                 test_data_loader=test_data_loader)
         results_data += train_trial_data
 
-        test_acc = test(model, test_data_loader, silent=silent, device=device)
-        results_data.append([i_trial, "test", None, None, test_acc])
+        if not log_accuracy:
+           test_acc = test(model, test_data_loader, silent=silent, device=device)
+           results_data.append([i_trial, "test", None, None, test_acc])
         accs.append(test_acc)
 
     # Save results to the file
-    fn_dir = "results"
-    fn = f"{fn_dir}/{datetime.datetime.now():%Y-%m-%d_%H:%M}"
-    if not os.path.exists(fn_dir):
-        os.makedirs(fn_dir)
-    pd.DataFrame(results_data,
-                 columns=["trial", "split", "epoch", "sample",
-                          "loss/val"]).to_csv(fn + ".csv", index=False)
-    with open(fn + "_config.txt", "w") as f:
-        f.write(str(config))
+    if save_data:
+        fn_dir = "results"
+        fn = f"{fn_dir}/{datetime.datetime.now():%Y-%m-%d_%H:%M}"
+        print("Results will be in ", fn)
+        if not os.path.exists(fn_dir):
+            os.makedirs(fn_dir)
+        pd.DataFrame(results_data,
+                     columns=["trial", "split", "epoch", "sample",
+                              "loss/val"]).to_csv(fn + ".csv", index=False)
+        with open(fn + "_config.txt", "w") as f:
+            f.write(str(config))
 
     return np.mean(accs)
 
@@ -178,19 +192,19 @@ if __name__ == "__main__":
 
     configs = {
         'dataset': ['mnist'],
-        'epochs': [3, 10],
+        'epochs': [5],
         'way': [10],
-        'train_shot': [1, 5, 10, 50, 100, 200],
+        'train_shot': [10],
         'test_shot': [1],
         'x_dim': [28],
-        'hidden_size': [64, 256, 1024],
-        'hidden_layers': [1, 2],
+        'hidden_size': [256],
+        'hidden_layers': [2],
         'nonlinearity': ['relu'],
         'optimizer': ['adam'],
-        'lr': [1e-3, 1e-4, 5e-5],
+        'lr': [1e-3],
         'channels': [1],
         'loss': [nn.CrossEntropyLoss()],
-        'trials': [100],
+        'trials': [1],
         'batch_size': [32],
         'silent': [True],
         'split': ['test'],
@@ -199,7 +213,8 @@ if __name__ == "__main__":
         'gpu': [1],
         'test_batch': [2000],
         'full_test': [True],
-        'save_data': [False]
+        'save_data': [True],
+        'log_accuracy': [True]
     }
 
     if configs['full_test'][0]:
