@@ -8,7 +8,7 @@ import torch
 import torchvision
 
 from ldl.models import BidirDistill
-from utils import preprocess_config, Logger
+from .utils import preprocess_config, Logger
 
 
 def train_target_epoch(epoch, model, data_loader, loss_func, device, trial,

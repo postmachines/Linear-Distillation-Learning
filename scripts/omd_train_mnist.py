@@ -1,7 +1,5 @@
-import os
 from tqdm import tqdm
 import numpy as np
-import pandas as pd
 import datetime
 import argparse
 import configparser
@@ -10,7 +8,7 @@ import torch
 import torchvision
 
 from ldl.models import RNDModel
-from utils import preprocess_config, Logger
+from .utils import preprocess_config, Logger
 
 
 def train(model, loss_func, train_loader, epochs, logger, silent=False, device=None,
@@ -132,7 +130,6 @@ def run_experiment_full_test(config):
     else:
         raise ValueError(f"Unknown loss function {loss}")
 
-    accs = []
     train_data_loader = torch.utils.data.DataLoader(
         torchvision.datasets.MNIST('data/MNIST/', train=True,
                                    download=True,
@@ -215,6 +212,7 @@ def run_experiment_full_test(config):
                             test_batch=test_batch)
             logger.log({'trial': i_trial, 'split': 'test', 'epoch': None,
                         'sample': None, 'predictor':None, 'value': test_acc})
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run training')
