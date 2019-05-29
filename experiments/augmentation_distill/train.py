@@ -4,9 +4,9 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 
-from did.data.utils import get_augmented_images
-from did.data import get_episodic_loader
-from did.models import RNDModel
+from ldl.data.utils import get_augmented_images
+from ldl.data import get_episodic_loader
+from ldl.models import RNDModel
 
 
 def run_epoch(rnd, loss_func, train_loader, epoch=0, silent=False, device=None):
@@ -107,6 +107,7 @@ def augment_data_distill(samples, model, device="cuda:0"):
 
 
 def run_experiment(config):
+    dataset = config['dataset']
     way = config['way']
     train_shot = config['train_shot']
     test_shot = config['test_shot']
@@ -129,10 +130,14 @@ def run_experiment(config):
     accs = []
     for _ in tqdm(range(trials)):
 
-        data = get_episodic_loader(way, train_shot, test_shot,
+        data = get_episodic_loader(dataset=dataset,
+                                   way=way,
+                                   train_shot=train_shot,
+                                   test_shot=test_shot,
                                    split=split,
                                    add_rotations=add_rotations,
-                                   in_alphabet=in_alphabet, x_dim=x_dim)
+                                   in_alphabet=in_alphabet,
+                                   x_dim=x_dim)
 
         model = RNDModel(way, in_dim=x_dim**2, out_dim=z_dim, opt=optimizer,
                          lr=lr, initialization=initialization)
@@ -179,6 +184,7 @@ if __name__ == "__main__":
     torch.manual_seed(2019)
 
     config = {
+        'dataset': 'omniglot',
         'way': 5,
         'train_shot': 5,
         'test_shot': 1,

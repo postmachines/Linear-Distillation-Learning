@@ -54,7 +54,6 @@ def train(model, loss_func, train_loader, epochs, optimizer, lr, batch_size,
             results_data.append([trial, "train", epoch, batch_i,loss.item()])
 
             if log_accuracy:
-                print("Logging Accuracy: ", log_accuracy)
                 test_acc = test(model, test_data_loader, silent=silent,
                                 device=device)
                 results_data.append([trial, "test", epoch, batch_i, test_acc])
@@ -227,7 +226,7 @@ if __name__ == "__main__":
     param_grid = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
     # Create resulting file if necessary
-    res_path = "did/experiments/baselines/results_mlp_mnist.csv"
+    res_path = "experiments/baselines/results_mlp_mnist.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)

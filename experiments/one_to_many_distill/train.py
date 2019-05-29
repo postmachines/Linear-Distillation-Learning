@@ -4,8 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from did.data import get_episodic_loader
-from did.models import RNDModel
+from ldl.data import get_episodic_loader
+from ldl.models import RNDModel
 
 
 def train(rnd, loss_func, train_loader, epochs, silent=False, device=None):
@@ -77,7 +77,7 @@ def run_experiment(config):
     lr = config['lr']
     initialization = config['initialization']
     gpu = config['gpu']
-    dld = config['dld']
+    #dld = config['dld']
 
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
@@ -89,7 +89,7 @@ def run_experiment(config):
 
     for _ in tqdm(range(trials)):
         model = RNDModel(way, in_dim=c*x_dim**2, out_dim=z_dim, opt=optimizer,
-                         lr=lr, initialization=initialization, dld=dld)
+                         lr=lr, initialization=initialization)#, dld=dld)
         model.to(device)
 
         for sample in dataloader:

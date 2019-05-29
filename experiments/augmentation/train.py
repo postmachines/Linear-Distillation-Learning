@@ -4,9 +4,9 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 
-from did.data.utils import get_augmented_images
-from did.data import get_episodic_loader
-from did.models import RNDModel
+from ldl.data.utils import get_augmented_images
+from ldl.data import get_episodic_loader
+from ldl.models import RNDModel
 
 
 def train(rnd, loss_func, train_loader, epochs, silent=False, device=None):
@@ -87,7 +87,6 @@ def run_experiment(config):
     np.random.seed(2019)
     torch.manual_seed(2019)
 
-
     dataset = config['dataset']
     way = config['way']
     train_shot = config['train_shot']
@@ -131,8 +130,6 @@ def run_experiment(config):
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
 
-
-            # break
             x_train = torch.tensor(x_train)
             y_train = torch.tensor(y_train)
             x_test = torch.tensor(x_test)

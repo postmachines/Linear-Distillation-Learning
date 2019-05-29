@@ -332,10 +332,10 @@ if __name__ == "__main__":
     config = {
         'dataset': 'mnist',
         'way': 10,
-        'train_shot': 10,
+        'train_shot': 1,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 5,
+        'epochs': 1,
         'trials': 1,
         'silent': True,
         'split': 'test',

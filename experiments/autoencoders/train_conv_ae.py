@@ -6,9 +6,9 @@ import torch
 import torch.nn as nn
 from torchvision.utils import save_image
 
-from did.data.utils import get_augmented_images
-from did.data import get_episodic_loader, get_data_loader
-from did.models import ConvAutoEncoder, AEModel
+from ldl.data.utils import get_augmented_images
+from ldl.data import get_episodic_loader, get_data_loader
+from models import ConvAutoEncoder, AEModel
 
 
 def augment_data(support):
@@ -102,7 +102,7 @@ def train_ae(config, img_dir='did/experiments/ae/conv_ae_images',
     # Pretrain AE
     w = h = config['x_dim']
     c = config['channels']
-    n_epochs = 30
+    n_epochs = 10
     batch_size = 128
     lr = 0.001
 
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     }
 
     # Pretrain AE
-    save_path = 'did/experiments/ae/ae_cnn.pt'
+    save_path = 'experiments/autoencoders/ae_cnn.pt'
     #train_ae(config, save_path=save_path)
 
     ae_model = torch.load(save_path)
@@ -230,4 +230,3 @@ if __name__ == "__main__":
             accs.append(test(model, samples_test, silent=silent))
 
     print("Mean accuracy: ", np.mean(accs))
-    

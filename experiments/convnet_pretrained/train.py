@@ -1,12 +1,16 @@
+"""
+WARNING: Outdated and not supported script.
+"""
+
 import numpy as np
 from tqdm import tqdm
 
 import torch
 import torch.nn as nn
 
-from did.data.utils import get_augmented_images
-from did.data import get_n_classes
-from did.models import SIMMResNet18
+from ldl.data.utils import get_augmented_images
+from ldl.data import get_n_classes
+from ldl.models import SIMMResNet18
 
 
 def train(rnd, loss_func, train_loader, epoch=0, silent=False):

@@ -24,11 +24,13 @@ class AutoEncoder(nn.Module):
         )
 
     def forward(self, x):
+        x = x.view(-1, 784)
         x = self.encoder(x)
         x = self.decoder(x)
         return x
 
     def get_emb(self, x):
+        x = x.view(-1, 784)
         return self.encoder(x)
 
 

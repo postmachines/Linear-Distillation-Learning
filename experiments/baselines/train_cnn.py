@@ -209,7 +209,7 @@ if __name__ == "__main__":
 
     # Create resulting file if necessary
     ds_name = configs['dataset'][0]
-    res_path = f"did/experiments/baselines/results_cnn_{ds_name}.csv"
+    res_path = f"experiments/baselines/results_cnn_{ds_name}.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)

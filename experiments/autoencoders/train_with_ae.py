@@ -6,9 +6,9 @@ import torch
 import torch.nn as nn
 from torchvision.utils import save_image
 
-from did.data.utils import get_augmented_images
-from did.data.omniglot import get_data_loader, get_episodic_loader
-from did.models import AEModel, AutoEncoder
+from ldl.data.utils import get_augmented_images
+from ldl.data.omniglot import get_data_loader, get_episodic_loader
+from models import AEModel, AutoEncoder
 
 
 def augment_data(support):
@@ -70,7 +70,8 @@ def test(rnd, test_loader, silent=False):
             predict_next_state_feature, target_next_state_feature = rnd.predict(x.to(device))
             mses = []
             for predict in predict_next_state_feature:
-                mses.append((target_next_state_feature - predict).pow(2).sum(0) / 2)
+                val = (target_next_state_feature - predict).pow(2).sum() / 2
+                mses.append(val)
             class_min_mse = np.argmin(mses)
             if class_min_mse == y.item():
                 correct += 1
@@ -87,7 +88,7 @@ def train_ae(img_dir='did/experiments/ae/mlp_images',
         os.makedirs(img_dir)
 
     # Pretrain AE
-    n_epochs = 100
+    n_epochs = 10
     batch_size = 128
     lr = 0.001
 
@@ -97,7 +98,9 @@ def train_ae(img_dir='did/experiments/ae/mlp_images',
     optimizer = torch.optim.Adam(ae_model.parameters(),
                                  lr=lr, weight_decay=1e-5)
 
-    dataloader = get_data_loader(split="train", batch_size=batch_size)
+    dataloader = get_data_loader(split="train",
+                                 x_dim=28,
+                                 batch_size=batch_size)
     for epoch in range(n_epochs):
         losses = []
         for img in dataloader:
@@ -119,7 +122,6 @@ def train_ae(img_dir='did/experiments/ae/mlp_images',
               .format(epoch + 1, n_epochs, np.mean(losses)))
 
         if epoch % 1 == 0:
-            print("Shape: ", output.shape, output.cpu().shape)
             pic = to_img(output.cpu().data)
             pic_orig = to_img(img.cpu().data)
             save_image(pic_orig, f'{img_dir}/image_{epoch}_orig.png')
@@ -139,8 +141,9 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Pretrain AE
-    save_path='did/experiments/ae/ae_mlp.pt'
+    save_path='experiments/autoencoders/ae_mlp.pt'
     #train_ae(save_path=save_path)
+
     ae_model = torch.load(save_path)
 
     config = {
@@ -165,11 +168,15 @@ if __name__ == "__main__":
     split = config['split']
     in_alphabet = config['in_alphabet']
     add_rotations = config['add_rotations']
+    x_dim = config['data_dim']
     
     accs = []
     for _ in tqdm(range(trials)):
 
-        data = get_episodic_loader(way, train_shot, test_shot,
+        data = get_episodic_loader(way=way,
+                                   train_shot=train_shot,
+                                   x_dim=x_dim,
+                                   test_shot=test_shot,
                                    split=split, add_rotations=add_rotations,
                                    in_alphabet=in_alphabet)
 

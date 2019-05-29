@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from did.data import get_episodic_loader
+from ldl.data import get_episodic_loader
 from rnd import RNDModel
 
 
@@ -55,6 +55,7 @@ def preprocess_data(data):
 
 
 def run_experiment(config):
+    dataset = config['dataset']
     way = config['way']
     train_shot = config['train_shot']
     test_shot = config['test_shot']
@@ -76,7 +77,11 @@ def run_experiment(config):
 
     accs = []
     for _ in tqdm(range(trials)):
-        dataloader = get_episodic_loader(way, train_shot, test_shot, x_dim,
+        dataloader = get_episodic_loader(dataset=dataset,
+                                         way=way,
+                                         train_shot=train_shot,
+                                         test_shot=test_shot,
+                                         x_dim=x_dim,
                                          split=split,
                                          add_rotations=add_rotations,
                                          in_alphabet=in_alphabet)
@@ -121,12 +126,13 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     config = {
+        'dataset': 'omniglot',
         'way': 10,
         'train_shot': 5,
         'test_shot': 1,
         'loss': nn.MSELoss(reduction='none'),
-        'epochs': 20,
-        'trials': 100,
+        'epochs': 5,
+        'trials': 10,
         'silent': True,
         'split': 'test',
         'in_alphabet': False,

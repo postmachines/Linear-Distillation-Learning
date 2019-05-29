@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from did.data import get_episodic_loader
+from ldl.data import get_episodic_loader
 from model import DLDReversed
 
 
