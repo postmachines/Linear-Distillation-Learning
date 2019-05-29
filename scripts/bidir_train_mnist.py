@@ -1,20 +1,18 @@
-import os
 import argparse
 import configparser
 import datetime
 from tqdm import tqdm
 import numpy as np
-import pandas as pd
 
 import torch
 import torchvision
 
 from ldl.models import BidirDistill
-from utils import preprocess_config
+from utils import preprocess_config, Logger
 
 
 def train_target_epoch(epoch, model, data_loader, loss_func, device, trial,
-                       silent=True):
+                       logger, silent=True):
     """
     Train target network for single epoch.
 
@@ -25,12 +23,12 @@ def train_target_epoch(epoch, model, data_loader, loss_func, device, trial,
         loss_func (func): pytorch loss function
         device (torch.Device): device on which to train
         trial (int): number of trial
+        logger (Logger): logger object
         silent (bool): if True print nothing.
 
     Returns: None
 
     """
-    results_data = []
     n = len(data_loader)
     for batch_i, (x, y) in enumerate(data_loader):
         x = x.view(1, x.shape[0]).to(device)
@@ -53,10 +51,9 @@ def train_target_epoch(epoch, model, data_loader, loss_func, device, trial,
             print(msg.format(epoch+1, batch_i, n, batch_i/n*100, loss.item()))
 
         # Logging info
-        results_data.append(
-            [trial, "train", epoch, batch_i, 'Teacher', loss.item()])
-
-    return results_data
+        logger.log({'trial': trial, 'split': "train", 'epoch': epoch,
+                    'sample': batch_i, 'predictor': 'Teacher',
+                    'value': loss.item()})
 
 
 def test_target(model, test_loader, device, silent=True):
@@ -89,7 +86,7 @@ def test_target(model, test_loader, device, silent=True):
 
 
 def train_predictors_epoch(model, data_loader, loss_func, device, trial,
-                           epoch, silent=True, log_test_acc_func=None):
+                           epoch, logger, silent=True, log_test_acc_func=None):
     """
     Train predictors networks for single epoch.
 
@@ -100,6 +97,7 @@ def train_predictors_epoch(model, data_loader, loss_func, device, trial,
         device (torch.Device): device to move data to
         trial (int): number of trial (for logging)
         epoch (int): number of current epoch (for logging)
+        logger (Logger): logger object
         silent (bool): if true outputs nothing
         log_test_acc_func (func): function to log accuracy on the test set.
 
@@ -108,7 +106,6 @@ def train_predictors_epoch(model, data_loader, loss_func, device, trial,
     """
 
     n = len(data_loader)
-    results_data = []  # trial | split | epoch | sample | predictor | value
     for batch_i, (x, y) in enumerate(data_loader):
         x = x.view(1, x.shape[0]).to(device)
         y = y.to(device)
@@ -121,28 +118,28 @@ def train_predictors_epoch(model, data_loader, loss_func, device, trial,
         predictor_z, target_z = model(x)
         loss = loss_func(predictor_z, target_z).mean()
 
-        # Backpropagate gradients
+        # Backpropogate gradients
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
         # Logging info
-        results_data.append(
-            [trial, "train", epoch, batch_i, f"Student {y.item()}", loss.item()])
+        logger.log({'trial': trial, 'split': 'train', 'epoch': epoch,
+                    'sample': batch_i, 'predictor': f"Student {y.item()}",
+                    'value': loss.item()})
 
         if log_test_acc_func is not None:
             acc = log_test_acc_func(model)
-            results_data.append(
-                [trial, "test", epoch, batch_i, "Predictors", acc])
+            logger.log({'trial': trial, 'split': "test", 'epoch': epoch,
+                        'sample': batch_i, 'predictor': "Predictors",
+                        'value': acc})
 
         if not silent and batch_i % 100 == 0:
             msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
             print(msg.format(epoch+1, batch_i, n, batch_i/n*100, loss.item()))
 
-    return results_data
 
-
-def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
+def test_predictors(model, data_loader, device, test_batch=1000, silent=True):
     """
     Get accuracy of the model's predictors.
 
@@ -181,7 +178,7 @@ def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
 
 
 def train(model, loss_func, train_loader, epochs, device, trial, silent,
-          log_test_acc_func=None):
+          logger, log_test_acc_func=None):
     """
     Train LDL for given number of epochs.
 
@@ -193,38 +190,36 @@ def train(model, loss_func, train_loader, epochs, device, trial, silent,
         device (torch.Device): device to move data to
         trial (int): number of trial (for logging)
         silent (bool): if True print nothing
+        logger (Logger): logger object
         log_test_acc_func (func): function to log accuracy on the test set.
 
     Returns:
 
     """
-    results_data = []  # trial | split | epoch | sample | predictor | value
     model.train()
     for epoch in range(epochs):
         np.random.shuffle(train_loader)
 
-        train_data = []
-
         # (1) Train target
-        train_data += train_target_epoch(model=model,
+        train_target_epoch(model=model,
                            data_loader=train_loader,
                            loss_func=loss_func,
                            device=device,
                            epoch=epoch,
-                                        trial=trial,
-                           silent=silent)
+                           trial=trial,
+                           silent=silent,
+                           logger=logger)
 
         # (2) Train predictors
-        train_data += train_predictors_epoch(model=model,
-                                            data_loader=train_loader,
-                                            loss_func=loss_func,
-                                            device=device, trial=trial,
-                                            epoch=epoch,
-                                            silent=silent,
-                                             log_test_acc_func=log_test_acc_func)
-        results_data += train_data
-
-    return results_data
+        train_predictors_epoch(model=model,
+                               data_loader=train_loader,
+                               loss_func=loss_func,
+                               device=device,
+                               trial=trial,
+                               epoch=epoch,
+                               silent=silent,
+                               log_test_acc_func=log_test_acc_func,
+                               logger=logger)
 
 
 def run_experiment_full_test(config):
@@ -245,7 +240,6 @@ def run_experiment_full_test(config):
     lr_target = config['lr_target']
     gpu = config['gpu']
     test_batch = config['test_batch']
-    save_data = config['save_data']
     log_test_accuracy = config['log_test_accuracy']
 
     # Parameters postprocessing
@@ -255,8 +249,12 @@ def run_experiment_full_test(config):
     else:
         raise ValueError(f"Unknown loss function {loss}")
 
-
-    accs = []
+    # Logger
+    fn_dir = "results"
+    fn = f"{fn_dir}/{datetime.datetime.now():%Y-%m-%d_%H:%M}"
+    logger = Logger(filepath=fn,
+                    columns=['trial', 'split', 'epoch', 'sample',
+                             'predictor', 'value'])
 
     train_data_loader = torch.utils.data.DataLoader(
         torchvision.datasets.MNIST('data/MNIST/', train=True,
@@ -289,7 +287,6 @@ def run_experiment_full_test(config):
         for i in range(10):
             train_data[i] = x[y==i]
 
-    results_data = [] # trial | split | epoch | sample | predictor | value
     for i_trial in tqdm(range(trials)):
         model = BidirDistill(n_classes=way,
                     in_dim=x_dim**2,
@@ -318,41 +315,25 @@ def run_experiment_full_test(config):
         samples_train = list(zip(x_train[inds], y_train[inds]))
 
         # Train target + predictors for epoch
-        train_trial_data = train(model=model,
-                                 loss_func=loss_func,
-                                 train_loader=samples_train,
-                                 epochs=epochs,
-                                 device=device,
-                                 trial=i_trial,
-                                 silent=silent,
-                                 log_test_acc_func=log_test_acc_func)
-        results_data += train_trial_data
+        train(model=model,
+              loss_func=loss_func,
+              train_loader=samples_train,
+              epochs=epochs,
+              device=device,
+              trial=i_trial,
+              silent=silent,
+              log_test_acc_func=log_test_acc_func,
+              logger=logger)
 
-        # Check accuracy
-        test_acc = test_predictors(model=model,
+        # Log test metrics only if metrics don't gathered in training procedure
+        if log_test_acc_func is not None:
+            test_acc = test_predictors(model=model,
                                    data_loader=test_data_loader,
                                    device=device,
                                    test_batch=test_batch,
                                    silent=silent)
-
-        # Log test metrics only if metrics don't gathered in training procedure
-        if log_test_acc_func is None:
-            results_data.append([i_trial, "test", None, None, None, test_acc])
-        accs.append(test_acc)
-
-    # Save results to the file
-    if save_data:
-        fn_dir = "results"
-        fn = f"{fn_dir}/{datetime.datetime.now():%Y-%m-%d_%H:%M}"
-        print("Data will be saved into ", fn)
-        if not os.path.exists(fn_dir):
-            os.makedirs(fn_dir)
-        cols = ["trial", "split", "epoch", "sample", "predictor", "loss/val"]
-        pd.DataFrame(results_data, columns=cols).to_csv(fn+".csv", index=False)
-        with open(fn + "_config.txt", "w") as f:
-            f.write(str(config))
-
-    return np.mean(accs)
+            logger.log({'trial': i_trial, 'split': 'test', 'epoch': None,
+                        'sample': None, 'predictor': None, 'value': test_acc})
 
 
 if __name__ == "__main__":
@@ -370,7 +351,6 @@ if __name__ == "__main__":
 
     from time import time
     time_start = time()
-    mean_accuracy = run_experiment_full_test(config)
+    run_experiment_full_test(config)
     print("Elapsed: ", time() - time_start)
-    print("Mean accuracy: ", mean_accuracy)
 

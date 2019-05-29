@@ -10,14 +10,29 @@ import torch
 import torchvision
 
 from ldl.models import RNDModel
-from utils import preprocess_config
+from utils import preprocess_config, Logger
 
 
-def train(rnd, loss_func, train_loader, epochs, silent=False, device=None, trial=None,
-          log_test_acc_func=None):
-    results_data = []  # trial | split | epoch | sample | predictor | value
+def train(model, loss_func, train_loader, epochs, logger, silent=False, device=None,
+          trial=None, log_test_acc_func=None):
+    """
+    Train model for one epoch.
 
-    rnd.train()
+    Args:
+        model (RNDModel): model object
+        loss_func (func): pytorch loss function object
+        train_loader (iterable): iterable samples of (x, y) data
+        epochs (int): current epoch
+        logger (Logger): logger object
+        silent (bool): if True print nothing
+        device (pt.Device): pytorch device to train on
+        trial (int): current trial
+        log_test_acc_func (func): function to train accuracy on test
+
+    Returns: None
+
+    """
+    model.train()
     for epoch in range(epochs):
         np.random.shuffle(train_loader)
         for batch_i, (x, y) in enumerate(train_loader):
@@ -25,30 +40,47 @@ def train(rnd, loss_func, train_loader, epochs, silent=False, device=None, trial
             y = y.to(device)
 
             # Activate predictor for the needed class
-            rnd.activate_predictor(class_=y.item())
+            model.activate_predictor(class_=y.item())
 
-            predictor_feature, target_feature = rnd(x)
+            predictor_feature, target_feature = model(x)
             loss = loss_func(predictor_feature, target_feature).mean()
-            optimizer = rnd.get_optimizer(y.item())
+            optimizer = model.get_optimizer(y.item())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            results_data.append([trial, "train", epoch, batch_i, y.item(), loss.item()])
+            # Loss on current sample
+            logger.log({'trial': trial, 'split': 'train', 'epoch': epoch,
+                        'sample': batch_i, 'predictor': y.item(),
+                        'value': loss.item()})
 
+            # Accuracy on whole test
             if log_test_acc_func is not None:
-                test_acc = log_test_acc_func
-                results_data.append(
-                    [trial, "test", epoch, batch_i, y.item(), test_acc])
+                test_acc = log_test_acc_func(model)
+                logger.log({'trial': trial, 'split': "test", 'epoch': epoch,
+                            'sample': batch_i, 'predictor': y.item(),
+                            'value': test_acc})
 
             if batch_i % 100 == 0 and not silent:
                 msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'
                 print(msg.format(epoch+1, batch_i, len(train_loader),
                              batch_i/len(train_loader)*100, loss.item()))
-    return results_data
 
 
 def test(model, data_loader, silent=False, device=None, test_batch=1000):
+    """
+    Evaluate model on given data.
+
+    Args:
+        model (RNDModel): model object
+        data_loader (iterable): iterable of (x, y) samples
+        silent (bool): if True prints nothing
+        device (pt.device): pytorch device to train on
+        test_batch (int): size of the test batch
+
+    Returns (float): accuracy value
+
+    """
     model.eval()
     correct = 0
     with torch.no_grad():
@@ -72,10 +104,6 @@ def test(model, data_loader, silent=False, device=None, test_batch=1000):
     return acc
 
 
-def preprocess_data(data):
-    return data
-
-
 def run_experiment_full_test(config):
     np.random.seed(2019)
     torch.manual_seed(2019)
@@ -95,7 +123,6 @@ def run_experiment_full_test(config):
     initialization = config['initialization']
     gpu = config['gpu']
     test_batch = config['test_batch']
-    save_data = config['save_data']
     log_test_accuracy = config['log_test_accuracy']
 
     # Parameters postprocessing
@@ -132,6 +159,13 @@ def run_experiment_full_test(config):
     else:
         log_test_acc_func = None
 
+    # Logger
+    fn_dir = "results"
+    fn = f"{fn_dir}/{datetime.datetime.now():%Y-%m-%d_%H:%M}"
+    logger = Logger(filepath=fn,
+                    columns=['trial', 'split', 'epoch', 'sample',
+                             'predictor', 'value'])
+
     train_data = {}
     for (x, y) in train_data_loader:
         for i in range(10):
@@ -162,37 +196,25 @@ def run_experiment_full_test(config):
         inds = np.random.permutation(x_train.shape[0])
         samples_train = list(zip(x_train[inds], y_train[inds]))
 
-        train_trial_data = train(model,
-                                 loss_func=loss_func,
-                                 train_loader=samples_train,
-                                 epochs=epochs,
-                                 silent=silent,
-                                 device=device,
-                                 trial=i_trial,
-                                 log_test_acc_func=log_test_acc_func)
-        results_data += train_trial_data
+        train(model,
+              loss_func=loss_func,
+              train_loader=samples_train,
+              epochs=epochs,
+              silent=silent,
+              device=device,
+              trial=i_trial,
+              log_test_acc_func=log_test_acc_func,
+              logger=logger)
 
-        test_acc = test(model,
-                        data_loader=test_data_loader,
-                        silent=silent,
-                        device=device,
-                        test_batch=test_batch)
-        results_data.append([i_trial, "test", None, None, None, test_acc])
-        accs.append(test_acc)
-
-    # Save results to the file
-    if save_data:
-        fn_dir = "results"
-        fn = f"{fn_dir}/{datetime.datetime.now():%Y-%m-%d_%H:%M}"
-        print("Results will be in ", fn)
-        if not os.path.exists(fn_dir):
-            os.makedirs(fn_dir)
-        pd.DataFrame(results_data, columns=["trial", "split", "epoch", "sample", "predictor", "loss/val"]).to_csv(fn+".csv", index=False)
-        with open(fn + "_config.txt", "w") as f:
-            f.write(str(config))
-
-    return np.mean(accs)
-
+        # Save accuracy on test only if it is not logged on training
+        if log_test_acc_func is None:
+            test_acc = test(model,
+                            data_loader=test_data_loader,
+                            silent=silent,
+                            device=device,
+                            test_batch=test_batch)
+            logger.log({'trial': i_trial, 'split': 'test', 'epoch': None,
+                        'sample': None, 'predictor':None, 'value': test_acc})
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run training')
@@ -208,6 +230,5 @@ if __name__ == "__main__":
 
     from time import time
     time_start = time()
-    mean_accuracy = run_experiment_full_test(config)
+    run_experiment_full_test(config)
     print("Elapsed: ", time() - time_start)
-    print("Mean accuracy: ", mean_accuracy)
