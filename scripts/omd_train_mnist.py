@@ -183,7 +183,7 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
     config = configparser.ConfigParser()
     config.read(args['config'])
-    config = preprocess_config(config['MNIST'])
+    config = preprocess_config(config['OMD'])
 
     from time import time
     time_start = time()
