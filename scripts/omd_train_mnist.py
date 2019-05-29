@@ -7,14 +7,14 @@ import argparse
 import configparser
 
 import torch
-import torch.nn as nn
 import torchvision
 
 from ldl.models import RNDModel
 from utils import preprocess_config
 
 
-def train(rnd, loss_func, train_loader, epochs, silent=False, device=None, trial=None, log_accuracy=True, test_data_loader=None):
+def train(rnd, loss_func, train_loader, epochs, silent=False, device=None, trial=None,
+          log_test_acc_func=None):
     results_data = []  # trial | split | epoch | sample | predictor | value
 
     rnd.train()
@@ -36,11 +36,8 @@ def train(rnd, loss_func, train_loader, epochs, silent=False, device=None, trial
 
             results_data.append([trial, "train", epoch, batch_i, y.item(), loss.item()])
 
-            if log_accuracy:
-                test_acc = test(rnd, test_data_loader,
-                                silent=silent,
-                                device=device,
-                                test_batch=2000)
+            if log_test_acc_func is not None:
+                test_acc = log_test_acc_func
                 results_data.append(
                     [trial, "test", epoch, batch_i, y.item(), test_acc])
 
@@ -51,19 +48,19 @@ def train(rnd, loss_func, train_loader, epochs, silent=False, device=None, trial
     return results_data
 
 
-def test(rnd, test_loader, silent=False, device='cpu', test_batch=1000):
-    rnd.eval()
+def test(model, data_loader, silent=False, device=None, test_batch=1000):
+    model.eval()
     correct = 0
     with torch.no_grad():
-        for batch_i, (x, y) in enumerate(test_loader):
+        for batch_i, (x, y) in enumerate(data_loader):
             x = x.view(-1, 784).to(device)
             y = y.to(device)
 
-            predict_next_state_feature, target_next_state_feature = rnd.predict(x)
+            predictor_z, target_z = model.predict(x)
 
             mses = []
-            for predict in predict_next_state_feature:
-                mses.append((target_next_state_feature - predict).pow(2).sum(1) / 2)
+            for predict in predictor_z:
+                mses.append((target_z - predict).pow(2).sum(1) / 2)
             mses_tensor = torch.Tensor(10, test_batch).to(device)
             torch.cat(mses, out=mses_tensor)
             mses_tensor = mses_tensor.view(10, test_batch)
@@ -99,6 +96,7 @@ def run_experiment_full_test(config):
     gpu = config['gpu']
     test_batch = config['test_batch']
     save_data = config['save_data']
+    log_test_accuracy = config['log_test_accuracy']
 
     # Parameters postprocessing
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
@@ -120,6 +118,19 @@ def run_experiment_full_test(config):
                                    transform=torchvision.transforms.ToTensor()),
         batch_size=test_batch, shuffle=True
     )
+
+    # Create ready-to-use function to gathering metrics on test
+    if log_test_accuracy:
+        def foo(model):
+            acc = test(model,
+                       test_data_loader,
+                       device=device,
+                       test_batch=test_batch,
+                       silent=silent)
+            return acc
+        log_test_acc_func = foo
+    else:
+        log_test_acc_func = None
 
     train_data = {}
     for (x, y) in train_data_loader:
@@ -151,11 +162,21 @@ def run_experiment_full_test(config):
         inds = np.random.permutation(x_train.shape[0])
         samples_train = list(zip(x_train[inds], y_train[inds]))
 
-        train_trial_data = train(model, loss_func=loss_func, train_loader=samples_train, epochs=epochs,
-              silent=silent, device=device, trial=i_trial, log_accuracy=True, test_data_loader=test_data_loader)
+        train_trial_data = train(model,
+                                 loss_func=loss_func,
+                                 train_loader=samples_train,
+                                 epochs=epochs,
+                                 silent=silent,
+                                 device=device,
+                                 trial=i_trial,
+                                 log_test_acc_func=log_test_acc_func)
         results_data += train_trial_data
 
-        test_acc = test(model, test_data_loader, silent=silent, device=device, test_batch=test_batch)
+        test_acc = test(model,
+                        data_loader=test_data_loader,
+                        silent=silent,
+                        device=device,
+                        test_batch=test_batch)
         results_data.append([i_trial, "test", None, None, None, test_acc])
         accs.append(test_acc)
 
