@@ -21,7 +21,7 @@ class TestMnistBidir(unittest.TestCase):
             'lr_predictor': '1e-3',
             'lr_target': '1e-3',
             'channels': '1',
-            'gpu': '0',
+            'gpu': '1',
             'test_batch': '2000',
             'log_test_accuracy': '0'
         }
@@ -67,7 +67,7 @@ class TestMnistBidir(unittest.TestCase):
             'lr_predictor': '1e-3',
             'lr_target': '1e-3',
             'channels': '1',
-            'gpu': '0',
+            'gpu': '1',
             'test_batch': '2000',
             'log_test_accuracy': '0'
         }
@@ -90,7 +90,7 @@ class TestMnistBidir(unittest.TestCase):
             'lr_predictor': '1e-3',
             'lr_target': '1e-3',
             'channels': '1',
-            'gpu': '0',
+            'gpu': '1',
             'test_batch': '2000',
             'log_test_accuracy': '0'
         }

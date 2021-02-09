@@ -1,0 +1,1 @@
+dataset,way,train_shot,test_shot,loss,epochs,trials,silent,split,x_dim,z_dim,lr_predictor,lr_target,channels,test_batch,save_data,in_alphabet,add_rotations,augmentation,gpu
