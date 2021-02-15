@@ -83,3 +83,4 @@ fashion_mnist,10,10,300,1,28,784,True,adam,5e-05,xavier_normal,1,MSELoss(),100,T
 fashion_mnist,10,10,300,1,28,2000,True,adam,0.001,xavier_normal,1,MSELoss(),100,True,test,False,True,1,2000,False,False,0.5880000000000001,3556.116189956665
 fashion_mnist,10,10,300,1,28,2000,True,adam,0.0001,xavier_normal,1,MSELoss(),100,True,test,False,True,1,2000,False,False,0.8550000000000001,3631.27223277092
 fashion_mnist,10,10,300,1,28,2000,True,adam,5e-05,xavier_normal,1,MSELoss(),100,True,test,False,True,1,2000,False,False,0.8550000000000003,3555.6599249839783
+fashion_mnist,10,10,300,1,28,2000,True,adam,0.0001,xavier_normal,1,MSELoss(),100,True,test,False,True,1,2000,False,False,0.8550000000000001,3267.1184713840485

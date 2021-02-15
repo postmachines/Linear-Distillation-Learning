@@ -8,8 +8,7 @@ import torch
 import torch.nn as nn
 import torchvision
 
-from model import LDL
-
+from ldl.models import BidirDistill
 
 def train_target_epoch(epoch, model, data_loader, loss_func, device, trial, silent=True):
     """
@@ -17,7 +16,7 @@ def train_target_epoch(epoch, model, data_loader, loss_func, device, trial, sile
 
     Args:
         epoch (int): current epoch
-        model (LDL): LDL model object
+        model (BidirDistill): BidirDistill model object
         data_loader (itertable): data loader
         loss_func (func): pytorch loss function
         device (torch.Device): device on which to train
@@ -90,7 +89,7 @@ def train_predictors_epoch(model, data_loader, loss_func, device, trial,
     Train predictors networks for single epoch.
 
     Args:
-        model (LDL): object of model to train
+        model (BidirDistill): object of model to train
         data_loader (iterable): data loader of (x, y) samples
         loss_func (func): torch loss function
         device (torch.Device): device to move data to
@@ -144,7 +143,7 @@ def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
     Get accuracy of the model's predictors.
 
     Args:
-        model (LDL): object of model to get predicts from
+        model (BidirDistill): object of model to get predicts from
         data_loader (iterable): data loader of form (x, y) samples
         device (torch.Device): device to move data to
         test_batch (int): batch size while testing
@@ -179,10 +178,10 @@ def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
 
 def train(model, loss_func, train_loader, epochs, device, trial, silent, test_data_loader=None):
     """
-    Train LDL for given number of epochs.
+    Train BidirDistill for given number of epochs.
 
     Args:
-        model (LDL): object of model to train
+        model (BidirDistill): object of model to train
         loss_func (func): torch loss function
         train_loader (iterable): data loader
         epochs (int): number epochs to train
@@ -206,7 +205,7 @@ def train(model, loss_func, train_loader, epochs, device, trial, silent, test_da
                            loss_func=loss_func,
                            device=device,
                            epoch=epoch,
-                                        trial=trial,
+                           trial=trial,
                            silent=silent)
 
         # (2) Train predictors
@@ -216,7 +215,7 @@ def train(model, loss_func, train_loader, epochs, device, trial, silent, test_da
                                             device=device, trial=trial,
                                             epoch=epoch,
                                             silent=silent,
-                                             log_accuracy=True,
+                                             log_accuracy=False,
                                              test_data_loader=test_data_loader)
         results_data += train_data
 
@@ -267,7 +266,7 @@ def run_experiment_full_test(config):
 
     results_data = [] # trial | split | epoch | sample | predictor | value
     for i_trial in tqdm(range(trials)):
-        model = LDL(n_classes=way,
+        model = BidirDistill(n_classes=way,
                     in_dim=x_dim**2,
                     out_dim=z_dim,
                     lr_predictor=lr_predictor,

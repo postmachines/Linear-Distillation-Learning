@@ -8,8 +8,7 @@ import torch
 import torch.nn as nn
 import torchvision
 
-from did.models import RNDModel
-
+from ldl.models import RNDModel
 
 def train(rnd, loss_func, train_loader, epochs, silent=False, device=None, trial=None, log_accuracy=True, test_data_loader=None):
     results_data = []  # trial | split | epoch | sample | predictor | value
@@ -143,11 +142,18 @@ def run_experiment_full_test(config):
         inds = np.random.permutation(x_train.shape[0])
         samples_train = list(zip(x_train[inds], y_train[inds]))
 
-        train_trial_data = train(model, loss_func=mse_loss, train_loader=samples_train, epochs=epochs,
-              silent=silent, device=device, trial=i_trial, log_accuracy=True, test_data_loader=test_data_loader)
+        train_trial_data = train(model, 
+                                 loss_func=mse_loss, 
+                                 train_loader=samples_train, 
+                                 epochs=epochs,
+                                 silent=silent, 
+                                 device=device, 
+                                 trial=i_trial, 
+                                 log_accuracy=True, 
+                                 test_data_loader=test_data_loader)
         results_data += train_trial_data
 
-        test_acc = test(model, test_data_loader, silent=silent, device=device, test_batch=test_batch)
+        test_acc = test(model,  test_data_loader, silent=silent, device=device, test_batch=test_batch)
         results_data.append([i_trial, "test", None, None, None, test_acc])
         accs.append(test_acc)
 

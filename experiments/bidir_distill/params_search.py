@@ -14,9 +14,9 @@ if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
-        'dataset': ['omniglot'],
-        'way': [5, 10],
-        'train_shot': [1, 3, 5, 10],
+        'dataset': ['mnist'],
+        'way': [10],
+        'train_shot': [1, 5, 10, 50, 100, 300],
         'test_shot': [1],
         'loss': [nn.MSELoss(reduction='none')],
         'epochs': [10],
@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     # Create resulting file if necessary
     ds_name = configs['dataset'][0]
-    res_path = f"did/experiments/ldl/results_{ds_name}_augmented_correct.csv"
+    res_path = f"../../results/08_02_2021/results_{ds_name}_augmented_correct_bidir.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
@@ -56,8 +56,8 @@ if __name__ == "__main__":
 
     conf_durations = []
     for i, param in enumerate(param_grid):
-        if i < 15:
-            continue
+#         if i < 15:
+#             continue
         if len(conf_durations):
             time_estimate = (len(param_grid) - (i+1)) * np.mean(conf_durations) // 60
         else:

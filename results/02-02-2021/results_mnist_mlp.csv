@@ -1,0 +1,1 @@
+dataset,epochs,way,train_shot,test_shot,x_dim,hidden_size,hidden_layers,nonlinearity,optimizer,lr,channels,loss,trials,batch_size,silent,split,in_alphabet,add_rotations,gpu,test_batch,full_test,save_data,log_accuracy

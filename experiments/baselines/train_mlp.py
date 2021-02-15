@@ -10,6 +10,7 @@ from torch import nn
 import torchvision
 import torch.optim as optim
 
+from ldl.data import get_episodic_loader
 from models import MLP
 
 
@@ -69,6 +70,7 @@ def test(model, test_loader, silent=False, device='cpu'):
     model.eval()
     correct = 0
     with torch.no_grad():
+        n = len(test_loader)
         for batch_i, (x, y) in enumerate(test_loader):
             x = x.view(-1, 784).to(device)
             y = y.to(device)
@@ -76,14 +78,88 @@ def test(model, test_loader, silent=False, device='cpu'):
             y_score = model(x)
             vals, inds = torch.max(y_score, 1)
             correct += torch.sum(torch.eq(y, inds)).item()
-        acc = correct / 10_000
+        acc = correct / n
         if not silent:
-            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, 10000, 100. * acc))
+            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, n, 100. * acc))
     return acc
 
 
+def preprocess_data(data):
+    return data
+
+
 def run_experiment(config):
-    pass
+    np.random.seed(2019)
+    torch.manual_seed(2019)
+
+    dataset = config['dataset']
+    way = config['way']
+    train_shot = config['train_shot']
+    test_shot = config['test_shot']
+    mse_loss = config['loss']
+    trials = config['trials']
+    epochs = config['epochs']
+    silent = config['silent']
+    batch_size = config['batch_size']
+    split = config['split']
+    x_dim = config['x_dim']
+    hidden_size = config['hidden_size']
+    hidden_layers = config['hidden_layers']
+    c = config['channels']
+    optimizer = config['optimizer']
+    add_rotations = config['add_rotations']
+    in_alphabet = config['in_alphabet']
+    lr = config['lr']
+    nonlinearity = config['nonlinearity']
+    gpu = config['gpu']
+    test_batch = config['test_batch']
+    log_accuracy = config['log_accuracy']
+    save_data = config['save_data']
+    device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
+
+    accs = []
+    dataloader = get_episodic_loader(dataset, way, train_shot, test_shot, x_dim,
+                                     split=split,
+                                     add_rotations=add_rotations,
+                                     in_alphabet=in_alphabet)
+
+    for i_trial in tqdm(range(trials)):
+        model = MLP(n_classes=way, x_dim=x_dim, hidden_layers=hidden_layers, hidden_size=hidden_size,
+                    nonlinearity=nonlinearity)
+        model.to(device)
+
+        for sample in dataloader:
+            x_train = sample['xs'].reshape((-1, c*x_dim**2))
+            y_train = np.asarray(
+                [i // train_shot for i in range(train_shot * way)])
+            x_test = sample['xq'].reshape((-1, c*x_dim**2))
+            y_test = np.asarray(
+                [i // test_shot for i in range(test_shot * way)])
+
+            x_train = preprocess_data(x_train)
+            x_test = preprocess_data(x_test)
+
+            x_train = torch.tensor(x_train)
+            y_train = torch.tensor(y_train)
+            x_test = torch.tensor(x_test)
+            y_test = torch.tensor(y_test)
+
+            # print("Train: ", x_train.shape, y_train.shape)
+            # print("Test: ", x_test.shape, y_test.shape)
+
+            inds = np.random.permutation(x_train.shape[0])
+            samples_train = list(zip(x_train[inds], y_train[inds]))
+            samples_test = list(zip(x_test, y_test))
+
+            train(model, loss_func=mse_loss,
+                                 optimizer=optimizer, lr=lr,
+                                 train_loader=samples_train, epochs=epochs,
+                                 batch_size=batch_size, silent=silent,
+                                 device=device, trial=i_trial,
+                                 log_accuracy=False)
+            accs.append(test(model, samples_test, silent=silent, device=device))
+
+    return np.mean(accs)
 
 
 def run_experiment_full_test(config):
@@ -190,20 +266,20 @@ if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
-        'dataset': ['mnist'],
+        'dataset': ['fashion_mnist'],
         'epochs': [5],
         'way': [10],
-        'train_shot': [10],
+        'train_shot': [1, 10, 50, 100, 200, 300],
         'test_shot': [1],
         'x_dim': [28],
         'hidden_size': [256],
         'hidden_layers': [2],
         'nonlinearity': ['relu'],
         'optimizer': ['adam'],
-        'lr': [1e-3],
+        'lr': [1e-3, 1e-4, 5e-5],
         'channels': [1],
         'loss': [nn.CrossEntropyLoss()],
-        'trials': [1],
+        'trials': [100],
         'batch_size': [32],
         'silent': [True],
         'split': ['test'],
@@ -211,7 +287,7 @@ if __name__ == "__main__":
         'add_rotations': [True],
         'gpu': [1],
         'test_batch': [2000],
-        'full_test': [True],
+        'full_test': [False],
         'save_data': [True],
         'log_accuracy': [True]
     }
@@ -226,7 +302,8 @@ if __name__ == "__main__":
     param_grid = [dict(zip(keys, v)) for v in itertools.product(*values)]
 
     # Create resulting file if necessary
-    res_path = "experiments/baselines/results_mlp_mnist.csv"
+    ds_name = configs['dataset'][0]
+    res_path = f"../../results/02-02-2021/results_{ds_name}_mlp.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
