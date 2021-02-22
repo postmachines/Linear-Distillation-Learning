@@ -36,6 +36,7 @@ def test(rnd, test_loader, silent=False, device='cpu'):
     rnd.eval()
     correct = 0
     with torch.no_grad():
+        n = len(test_loader)
         for batch_i, (x, y) in enumerate(test_loader):
             x = x.squeeze()
             predict_next_state_feature, target_next_state_feature = rnd.predict(x.to(device))
@@ -45,9 +46,9 @@ def test(rnd, test_loader, silent=False, device='cpu'):
             class_min_mse = np.argmin(mses)
             if class_min_mse == y.item():
                 correct += 1
-        acc = correct / (batch_i+1)
+        acc = correct / n
         if not silent:
-            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, batch_i+1, 100. * acc))
+            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, n, 100. * acc))
     return acc
 
 

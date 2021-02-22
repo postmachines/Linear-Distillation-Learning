@@ -5,11 +5,11 @@ import torch.nn.functional as F
 class MLP(nn.Module):
 
     def __init__(self, n_classes=10, x_dim=28, hidden_layers=1, hidden_size=1024,
-                 nonlinearity='relu'):
+                 nonlinearity='relu', c=1):
         super(MLP, self).__init__()
 
         self.x_dim = x_dim
-
+        self.channels = c
         # Classes for layers
         if nonlinearity == 'relu':
             nnl = nn.ReLU
@@ -17,7 +17,7 @@ class MLP(nn.Module):
             nnl = nn.PReLU
 
         # Gather layers
-        items = [nn.Linear(x_dim**2, hidden_size), nnl()]
+        items = [nn.Linear(c*x_dim**2, hidden_size), nnl()]
         for _ in range(hidden_layers-1):
             items.append(nn.Linear(hidden_size, hidden_size))
             items.append(nnl())
@@ -27,15 +27,15 @@ class MLP(nn.Module):
         self.model = nn.Sequential(*items)
 
     def forward(self, x):
-        x = x.view(-1, self.x_dim**2)
+        x = x.view(-1, self.channels * self.x_dim**2)
         return F.log_softmax(self.model(x), dim=-1)
 
 
 class LogReg(nn.Module):
 
-    def __init__(self, n_classes=10, x_dim=28):
+    def __init__(self, n_classes=10, x_dim=28, c=1):
         super(LogReg, self).__init__()
-        self.model = nn.Linear(x_dim**2, n_classes)
+        self.model = nn.Linear(c*x_dim**2, n_classes)
 
     def forward(self, x):
         out = self.model(x)

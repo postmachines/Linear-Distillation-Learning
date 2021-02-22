@@ -13,19 +13,43 @@ from train_full_test import run_experiment_full_test
 if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
-    configs = {
-        'dataset': ['mnist'],
+#     configs = {
+#         'dataset': ['mnist'],
+#         'epochs': [3, 10],
+#         'way': [10],
+#         'train_shot': [1, 5, 10, 50, 100, 200, 300],
+#         'test_shot': [1],
+#         'x_dim': [28], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
+#         'z_dim': [784, 2000],
+#         'dld': [True],
+#         'optimizer': ['adam'],
+#         'lr': [1e-3, 1e-4, 5e-5],
+#         'initialization': ['xavier_normal'],
+#         'channels': [1],
+#         'loss': [nn.MSELoss(reduction='none')],
+#         'trials': [100],
+#         'silent': [True],
+#         'split': ['test'],
+#         'in_alphabet': [False],
+#         'add_rotations': [True],
+#         'gpu': [1],
+#         'test_batch': [2000],
+#         'full_test': [True],
+#         'save_data': [False]
+#     }
+        configs = {
+        'dataset': ['svhn'],
         'epochs': [3, 10],
         'way': [10],
-        'train_shot': [1, 5, 10, 50, 100, 200, 300],
+        'train_shot': [1, 5, 10, 100,  300],
         'test_shot': [1],
-        'x_dim': [28], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
-        'z_dim': [784, 2000],
+        'x_dim': [32], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
+        'z_dim': [1024, 2000],
         'dld': [True],
         'optimizer': ['adam'],
         'lr': [1e-3, 1e-4, 5e-5],
         'initialization': ['xavier_normal'],
-        'channels': [1],
+        'channels': [3],
         'loss': [nn.MSELoss(reduction='none')],
         'trials': [100],
         'silent': [True],
@@ -34,21 +58,24 @@ if __name__ == "__main__":
         'add_rotations': [True],
         'gpu': [1],
         'test_batch': [2000],
-        'full_test': [True],
+        'full_test': [False],
         'save_data': [False]
     }
 
-    if configs['full_test'][0]:
-        experiment_func = run_experiment_full_test
+    ds_name = configs['dataset'][0]
+    if ds_name in ['mnist', 'fashion_mnist', 'svhn', 'omniglot']:
+        if configs['full_test'][0]:
+            exp_func = run_experiment_full_test
+        else:
+            exp_func = run_experiment
     else:
-        experiment_func = run_experiment
+        raise Exception("Unknown dataset!")
 
     # Create grid of parameters
     keys, values = zip(*configs.items())
     param_grid = [dict(zip(keys, v)) for v in itertools.product(*values)]
-
     # Create resulting file if necessary
-    res_path = "did/experiments/base/results_mnist_dld.csv"
+    res_path = f"../../results/02-02-2021/results_{ds_name}_o2m.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)

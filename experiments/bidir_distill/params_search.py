@@ -6,33 +6,56 @@ import pandas as pd
 import torch
 from torch import nn
 
-from train import run_experiment_full_test as run_experiment_mnist
+from train import run_experiment_full_test, run_experiment
 from train_omniglot import run_experiment as run_experiment_omniglot
 
 
 if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
+#     configs = {
+#         'dataset': ['fashion_mnist'],
+#         'way': [10],
+#         'train_shot': [1,5, 10, 50, 100, 300],
+#         'test_shot': [1],
+#         'loss': [nn.MSELoss(reduction='none')],
+#         'epochs': [10],
+#         'trials': [50],
+#         'silent': [True],
+#         'split': ['test'],
+#         'x_dim': [28],
+#         'z_dim': [784, 2000],
+#         'lr_predictor': [1e-3, 1e-4, 5e-5],
+#         'lr_target': [1e-3, 1e-4, 5e-5],
+#         'channels': [1],
+#         'test_batch': [1],
+#         'save_data': [False],
+#         'in_alphabet': [False],
+#         'add_rotations': [True],
+#         'augmentation': [True],
+#         'gpu': [1]
+#     }
     configs = {
-        'dataset': ['mnist'],
+        'dataset': ['svhn'],
         'way': [10],
-        'train_shot': [1, 5, 10, 50, 100, 300],
+        'train_shot': [1, 10, 50, 100, 300],
         'test_shot': [1],
         'loss': [nn.MSELoss(reduction='none')],
         'epochs': [10],
-        'trials': [50],
+        'trials': [100],
         'silent': [True],
         'split': ['test'],
-        'x_dim': [28],
-        'z_dim': [784, 2000],
-        'lr_predictor': [1e-3],
-        'lr_target': [1e-3],
-        'channels': [1],
+        'x_dim': [32],
+        'z_dim': [1024, 2000],
+        'lr_predictor': [1e-3, 1e-4, 5e-5],
+        'lr_target': [1e-3, 1e-4, 5e-5],
+        'channels': [3],
         'test_batch': [1],
         'save_data': [False],
         'in_alphabet': [False],
         'add_rotations': [True],
         'augmentation': [True],
+        'full_test': [False],
         'gpu': [1]
     }
 
@@ -42,15 +65,18 @@ if __name__ == "__main__":
 
     # Create resulting file if necessary
     ds_name = configs['dataset'][0]
-    res_path = f"../../results/08_02_2021/results_{ds_name}_augmented_correct_bidir.csv"
+    res_path = f"../../results/02-02-2021/results_{ds_name}_bidir.csv"
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
 
-    if ds_name == 'mnist':
-        exp_func = run_experiment_mnist
-    elif ds_name == 'omniglot':
+    if ds_name == 'omniglot':
         exp_func = run_experiment_omniglot
+    elif ds_name in ['mnist', 'fashion_mnist', 'svhn']:
+        if configs['full_test'][0]:
+            exp_func = run_experiment_full_test
+        else:
+            exp_func = run_experiment
     else:
         raise Exception("Unknown dataset!")
 

@@ -66,13 +66,13 @@ def train(model, loss_func, train_loader, epochs, optimizer, lr, batch_size,
     return results_data
 
 
-def test(model, test_loader, silent=False, device='cpu'):
+def test(model, test_loader, silent=False, device='cpu', x_dim=28, c=1):
     model.eval()
     correct = 0
     with torch.no_grad():
         n = len(test_loader)
         for batch_i, (x, y) in enumerate(test_loader):
-            x = x.view(-1, 784).to(device)
+            x = x.view(-1, c*x_dim**2).to(device)
             y = y.to(device)
 
             y_score = model(x)
@@ -125,7 +125,7 @@ def run_experiment(config):
 
     for i_trial in tqdm(range(trials)):
         model = MLP(n_classes=way, x_dim=x_dim, hidden_layers=hidden_layers, hidden_size=hidden_size,
-                    nonlinearity=nonlinearity)
+                    nonlinearity=nonlinearity, c=c)
         model.to(device)
 
         for sample in dataloader:
@@ -157,7 +157,7 @@ def run_experiment(config):
                                  batch_size=batch_size, silent=silent,
                                  device=device, trial=i_trial,
                                  log_accuracy=False)
-            accs.append(test(model, samples_test, silent=silent, device=device))
+            accs.append(test(model, samples_test, silent=silent, device=device, x_dim=x_dim, c=c))
 
     return np.mean(accs)
 
@@ -266,18 +266,18 @@ if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
-        'dataset': ['fashion_mnist'],
+        'dataset': ['svhn'],
         'epochs': [5],
         'way': [10],
         'train_shot': [1, 10, 50, 100, 200, 300],
         'test_shot': [1],
-        'x_dim': [28],
+        'x_dim': [32],
         'hidden_size': [256],
         'hidden_layers': [2],
         'nonlinearity': ['relu'],
         'optimizer': ['adam'],
         'lr': [1e-3, 1e-4, 5e-5],
-        'channels': [1],
+        'channels': [3],
         'loss': [nn.CrossEntropyLoss()],
         'trials': [100],
         'batch_size': [32],

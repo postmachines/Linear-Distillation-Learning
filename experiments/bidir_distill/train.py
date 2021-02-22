@@ -9,6 +9,7 @@ import torch.nn as nn
 import torchvision
 
 from ldl.models import BidirDistill
+from ldl.data import get_episodic_loader
 
 def train_target_epoch(epoch, model, data_loader, loss_func, device, trial, silent=True):
     """
@@ -138,7 +139,7 @@ def train_predictors_epoch(model, data_loader, loss_func, device, trial,
     return results_data
 
 
-def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
+def test_predictors(model, data_loader, device, test_batch=1000, silent=True, input_shape=784):
     """
     Get accuracy of the model's predictors.
 
@@ -155,8 +156,9 @@ def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
     model.eval()
     correct = 0
     with torch.no_grad():
+        n = len(data_loader)
         for batch_i, (x, y) in enumerate(data_loader):
-            x = x.view(-1, 784).to(device)
+            x = x.view(-1, input_shape).to(device)
             y = y.to(device)
 
             predict_next_state_feature, target_next_state_feature = model.predict(x)
@@ -170,13 +172,13 @@ def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
             mses_tensor = mses_tensor.view(10, test_batch)
             class_min_mse = torch.argmin(mses_tensor, dim=0)
             correct += torch.sum(torch.eq(y, class_min_mse)).item()
-        acc = correct / 10_000
+        acc = correct / n
         if not silent:
-            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, 10000, 100. * acc))
+            print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, n, 100. * acc))
     return acc
 
 
-def train(model, loss_func, train_loader, epochs, device, trial, silent, test_data_loader=None):
+def train(model, loss_func, train_loader, epochs, device, trial, silent, test_data_loader=None, log_accuracy=False):
     """
     Train BidirDistill for given number of epochs.
 
@@ -215,11 +217,89 @@ def train(model, loss_func, train_loader, epochs, device, trial, silent, test_da
                                             device=device, trial=trial,
                                             epoch=epoch,
                                             silent=silent,
-                                             log_accuracy=False,
+                                             log_accuracy=log_accuracy,
                                              test_data_loader=test_data_loader)
         results_data += train_data
 
     return results_data
+
+
+def preprocess_data(data):
+    return data
+
+
+def run_experiment(config):
+    np.random.seed(2019)
+    torch.manual_seed(2019)
+
+    dataset = config['dataset']
+    way = config['way']
+    train_shot = config['train_shot']
+    test_shot = config['test_shot']
+    mse_loss = config['loss']
+    trials = config['trials']
+    epochs = config['epochs']
+    test_batch = config['test_batch']
+    silent = config['silent']
+    split = config['split']
+    add_rotations = config['add_rotations']
+    in_alphabet = config['in_alphabet']
+    x_dim = config['x_dim']
+    z_dim = config['z_dim']
+    c = config['channels']
+    lr_predictor = config['lr_predictor']
+    lr_target = config['lr_target']
+    gpu = config['gpu']
+
+    #dld = config['dld']
+
+    device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
+
+    accs = []
+    dataloader = get_episodic_loader(dataset, way, train_shot, test_shot, x_dim,
+                                     split=split,
+                                     add_rotations=add_rotations,
+                                     in_alphabet=in_alphabet)
+
+    results_data = []  # trial | split | epoch | sample | predictor | value
+    for i_trial in tqdm(range(trials)):
+
+        for sample in dataloader:
+            x_train = sample['xs'].reshape((-1, c*x_dim**2))
+            y_train = np.asarray(
+                [i // train_shot for i in range(train_shot * way)])
+            x_test = sample['xq'].reshape((-1, c*x_dim**2))
+            y_test = np.asarray(
+                [i // test_shot for i in range(test_shot * way)])
+
+            x_train = preprocess_data(x_train)
+            x_test = preprocess_data(x_test)
+
+            x_train = torch.tensor(x_train)
+            y_train = torch.tensor(y_train)
+            x_test = torch.tensor(x_test)
+            y_test = torch.tensor(y_test)
+
+            # print("Train: ", x_train.shape, y_train.shape)
+            # print("Test: ", x_test.shape, y_test.shape)
+
+            inds = np.random.permutation(x_train.shape[0])
+            samples_train = list(zip(x_train[inds], y_train[inds]))
+            samples_test = list(zip(x_test, y_test))
+            
+            model = BidirDistill(n_classes=way,
+                    in_dim=c * x_dim**2,
+                    out_dim=z_dim,
+                    lr_predictor=lr_predictor,
+                    lr_target=lr_target)
+            model.to(device)
+
+            train(model, loss_func=mse_loss, train_loader=samples_train, epochs=epochs,
+                  silent=silent, device=device, trial=i_trial, log_accuracy=False)
+            test_acc = test_predictors(model, samples_test, silent=silent, device=device, test_batch=test_batch, input_shape=c*x_dim**2)
+            accs.append(test_acc)
+
+    return np.mean(accs)
 
 
 def run_experiment_full_test(config):

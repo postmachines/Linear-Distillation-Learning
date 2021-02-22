@@ -76,18 +76,17 @@ def run_experiment_full_test(config):
 if __name__ == "__main__":
 
     configs = {
-        'dataset': ['fashion_mnist'],
+        'dataset': ['svhn'],
         'way': [10],
         'train_shot': [1, 10, 50, 100, 200, 300],
         'test_shot': [1],
         'max_depth': [1, 3, 5, 7, 10, 20, 30, 50, 100],
-        'x_dim': [28],
-        'channels': [1],
+        'x_dim': [32],
+        'channels': [3],
         'trials': [100],
         'split': ['test'],
         'in_alphabet': [False],
         'add_rotations': [True],
-        'gpu': [1],
         'test_batch': [2000],
         'full_test': [False],
         'save_data': [False]

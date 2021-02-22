@@ -155,9 +155,9 @@ def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
     """
     model.eval()
     correct = 0
-    n = len(data_loader)
-
     with torch.no_grad():
+        n = len(data_loader)
+        
         for batch_i, (x, y) in enumerate(data_loader):
             x = x.view(-1, 784).to(device)
             y = y.to(device)
@@ -179,7 +179,7 @@ def test_predictors(model, data_loader, device, test_batch=1000, silent=True,):
     return acc
 
 
-def train(model, loss_func, train_loader, epochs, device, trial, silent, test_data_loader=None, log_accuracy=True,):
+def train(model, loss_func, train_loader, epochs, device, trial, silent, test_data_loader=None, log_accuracy=False):
     """
     Train BidirDistill for given number of epochs.
 
