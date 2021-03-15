@@ -8,6 +8,7 @@ from torch import nn
 
 from train import run_experiment_full_test, run_experiment
 from train_omniglot import run_experiment as run_experiment_omniglot
+from train_customer import run_experiment as run_experiment_customer
 
 
 if __name__ == "__main__":
@@ -35,9 +36,32 @@ if __name__ == "__main__":
 #         'augmentation': [True],
 #         'gpu': [1]
 #     }
+#     configs = {
+#         'dataset': ['svhn'],
+#         'way': [10],
+#         'train_shot': [1, 10, 50, 100, 300],
+#         'test_shot': [1],
+#         'loss': [nn.MSELoss(reduction='none')],
+#         'epochs': [10],
+#         'trials': [100],
+#         'silent': [True],
+#         'split': ['test'],
+#         'x_dim': [32],
+#         'z_dim': [1024, 2000],
+#         'lr_predictor': [1e-3, 1e-4, 5e-5],
+#         'lr_target': [1e-3, 1e-4, 5e-5],
+#         'channels': [3],
+#         'test_batch': [1],
+#         'save_data': [False],
+#         'in_alphabet': [False],
+#         'add_rotations': [True],
+#         'augmentation': [True],
+#         'full_test': [False],
+#         'gpu': [1]
+#     }
+
     configs = {
-        'dataset': ['svhn'],
-        'way': [10],
+        'dataset': ['customer'],
         'train_shot': [1, 10, 50, 100, 300],
         'test_shot': [1],
         'loss': [nn.MSELoss(reduction='none')],
@@ -45,19 +69,14 @@ if __name__ == "__main__":
         'trials': [100],
         'silent': [True],
         'split': ['test'],
-        'x_dim': [32],
-        'z_dim': [1024, 2000],
         'lr_predictor': [1e-3, 1e-4, 5e-5],
         'lr_target': [1e-3, 1e-4, 5e-5],
-        'channels': [3],
         'test_batch': [1],
         'save_data': [False],
-        'in_alphabet': [False],
-        'add_rotations': [True],
-        'augmentation': [True],
         'full_test': [False],
         'gpu': [1]
     }
+
 
     # Create grid of parameters
     keys, values = zip(*configs.items())
@@ -72,6 +91,8 @@ if __name__ == "__main__":
 
     if ds_name == 'omniglot':
         exp_func = run_experiment_omniglot
+    elif ds_name == 'customer':
+        exp_func = run_experiment_customer
     elif ds_name in ['mnist', 'fashion_mnist', 'svhn']:
         if configs['full_test'][0]:
             exp_func = run_experiment_full_test
