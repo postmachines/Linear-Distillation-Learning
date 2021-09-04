@@ -8,16 +8,41 @@ from torch import nn
 
 from train import run_experiment_full_test, run_experiment
 from train_omniglot import run_experiment as run_experiment_omniglot
-from train_customer import run_experiment as run_experiment_customer
+from train_table_dataset import run_experiment as run_experiment_table_ds
 
 
 if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
+    configs = {
+        'dataset': ['mnist'],
+        'way': [10],
+        'train_shot': [10, 50, 100, 200, 300],
+        'test_shot': [1],
+        'loss': [nn.MSELoss(reduction='none')],
+        'epochs': [10],
+        'trials': [50],
+        'silent': [True],
+        'split': ['test'],
+        'x_dim': [28],
+        'z_dim': [784, 2000],
+        'lr_predictor': [1e-3, 1e-4, 5e-5],
+        'lr_target': [1e-3, 1e-4, 5e-5],
+        'channels': [1],
+        'test_batch': [1],
+        'save_data': [False],
+        'in_alphabet': [False],
+        'add_rotations': [False],
+        'augmentation': [False],
+        'gpu': [2],
+        'table_dataset': [False],
+        'full_test': [False]
+
+    }
 #     configs = {
 #         'dataset': ['fashion_mnist'],
 #         'way': [10],
-#         'train_shot': [1,5, 10, 50, 100, 300],
+#         'train_shot': [200],
 #         'test_shot': [1],
 #         'loss': [nn.MSELoss(reduction='none')],
 #         'epochs': [10],
@@ -34,7 +59,9 @@ if __name__ == "__main__":
 #         'in_alphabet': [False],
 #         'add_rotations': [True],
 #         'augmentation': [True],
-#         'gpu': [1]
+#         'gpu': [2],
+#         'full_test': [False],
+#         'table_dataset': [False],
 #     }
 #     configs = {
 #         'dataset': ['svhn'],
@@ -60,22 +87,66 @@ if __name__ == "__main__":
 #         'gpu': [1]
 #     }
 
-    configs = {
-        'dataset': ['customer'],
-        'train_shot': [1, 10, 50, 100, 300],
-        'test_shot': [1],
-        'loss': [nn.MSELoss(reduction='none')],
-        'epochs': [10],
-        'trials': [100],
-        'silent': [True],
-        'split': ['test'],
-        'lr_predictor': [1e-3, 1e-4, 5e-5],
-        'lr_target': [1e-3, 1e-4, 5e-5],
-        'test_batch': [1],
-        'save_data': [False],
-        'full_test': [False],
-        'gpu': [1]
-    }
+#     configs = {
+#         'dataset': ['customer'],
+#         'train_shot': [50, 200],
+#         'x_dim': [41],
+#         'z_dim': [1000],
+#         'way': [2],
+#         'test_shot': [1],
+#         'loss': [nn.MSELoss(reduction='none')],
+#         'epochs': [10],
+#         'trials': [100],
+#         'silent': [True],
+#         'split': ['train'],
+#         'lr_predictor': [1e-3, 1e-4, 5e-5],
+#         'lr_target': [1e-3, 1e-4, 5e-5],
+#         'test_batch': [1],
+#         'save_data': [False],
+#         'full_test': [False],
+#         'gpu': [2],
+#         'table_dataset': [True]
+#     }
+
+#     configs = {
+#         'dataset': ['covtype'],
+#         'train_shot': [200],
+#         'x_dim': [54],
+#         'z_dim': [1000, 2000],
+#         'way': [7],
+#         'test_shot': [1],
+#         'loss': [nn.MSELoss(reduction='none')],
+#         'epochs': [10],
+#         'trials': [100],
+#         'silent': [True],
+#         'split': ['train'],
+#         'lr_predictor': [1e-3, 1e-4, 5e-5],
+#         'lr_target': [1e-3, 1e-4, 5e-5],
+#         'test_batch': [1],
+#         'save_data': [False],
+#         'full_test': [False],
+#         'gpu': [1],
+#         'table_dataset': [True]
+#     }
+#     configs = {
+#         'dataset': ['medical'],
+#         'train_shot': [1, 10, 50, 100, 300],
+#         'x_dim': [59],
+#         'way': [6],
+#         'test_shot': [1],
+#         'loss': [nn.MSELoss(reduction='none')],
+#         'epochs': [10],
+#         'trials': [100],
+#         'silent': [True],
+#         'split': ['test'],
+#         'lr_predictor': [1e-3, 1e-4, 5e-5],
+#         'lr_target': [1e-3, 1e-4, 5e-5],
+#         'test_batch': [1],
+#         'save_data': [False],
+#         'full_test': [False],
+#         'gpu': [1],
+#         'table_dataset': [True]
+#     }
 
 
     # Create grid of parameters
@@ -88,18 +159,23 @@ if __name__ == "__main__":
     if not os.path.exists(res_path):
         df = pd.DataFrame(columns=configs.keys())
         df.to_csv(res_path, index=False)
-
-    if ds_name == 'omniglot':
-        exp_func = run_experiment_omniglot
-    elif ds_name == 'customer':
-        exp_func = run_experiment_customer
-    elif ds_name in ['mnist', 'fashion_mnist', 'svhn']:
-        if configs['full_test'][0]:
-            exp_func = run_experiment_full_test
+        
+    table_dataset = configs['table_dataset'][0]
+    if table_dataset:
+        if ds_name in ['customer', 'covtype', 'medical']:
+            exp_func = run_experiment_table_ds
         else:
-            exp_func = run_experiment
+            raise Exception("Unknown dataset!")
     else:
-        raise Exception("Unknown dataset!")
+        if ds_name == 'omniglot':
+            exp_func = run_experiment_omniglot
+        elif ds_name in ['mnist', 'fashion_mnist', 'svhn']:
+            if configs['full_test'][0]:
+                exp_func = run_experiment_full_test
+            else:
+                exp_func = run_experiment
+        else:
+            raise Exception("Unknown dataset!")
 
     conf_durations = []
     for i, param in enumerate(param_grid):

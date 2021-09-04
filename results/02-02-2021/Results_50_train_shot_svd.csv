@@ -1,0 +1,3 @@
+model,customer,fashion_mnist,mnist,svhn
+O2M distillation,0.655,0.779,,0.279
+SVD O2M distillation,0.655,0.7850000000000003,0.926,0.518

@@ -1,0 +1,9 @@
+experiments/one_to_many_distill/data
+experiments/bidir_distill/data
+experiments/baselines/data
+experiments/logdistill_o2m/data
+experiments/o2m_cosine/data
+experiments/svd_bidir
+experiments/svd_o2m/data
+/*.ipynb
+/data/

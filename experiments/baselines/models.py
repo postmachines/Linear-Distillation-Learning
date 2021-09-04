@@ -5,19 +5,24 @@ import torch.nn.functional as F
 class MLP(nn.Module):
 
     def __init__(self, n_classes=10, x_dim=28, hidden_layers=1, hidden_size=1024,
-                 nonlinearity='relu', c=1):
+                 nonlinearity='relu', c=1, table_dataset=False):
         super(MLP, self).__init__()
 
         self.x_dim = x_dim
         self.channels = c
+        
         # Classes for layers
         if nonlinearity == 'relu':
             nnl = nn.ReLU
         elif nonlinearity == 'leaky_relu':
             nnl = nn.PReLU
-
+        
+        if table_dataset:
+            self.input_size = self.x_dim
+        else:
+            self.input_size = self.channels * self.x_dim**2
         # Gather layers
-        items = [nn.Linear(c*x_dim**2, hidden_size), nnl()]
+        items = [nn.Linear(self.input_size, hidden_size), nnl()]
         for _ in range(hidden_layers-1):
             items.append(nn.Linear(hidden_size, hidden_size))
             items.append(nnl())
@@ -27,15 +32,19 @@ class MLP(nn.Module):
         self.model = nn.Sequential(*items)
 
     def forward(self, x):
-        x = x.view(-1, self.channels * self.x_dim**2)
+        x = x.view(-1, self.input_size)
         return F.log_softmax(self.model(x), dim=-1)
 
 
 class LogReg(nn.Module):
 
-    def __init__(self, n_classes=10, x_dim=28, c=1):
+    def __init__(self, n_classes=10, x_dim=28, c=1, table_dataset=False):
         super(LogReg, self).__init__()
-        self.model = nn.Linear(c*x_dim**2, n_classes)
+        if table_dataset:
+            input_size = x_dim
+        else:
+            input_size = c*x_dim**2
+        self.model = nn.Linear(input_size, n_classes)
 
     def forward(self, x):
         out = self.model(x)

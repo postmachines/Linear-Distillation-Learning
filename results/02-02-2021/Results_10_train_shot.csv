@@ -1,0 +1,6 @@
+model,covtype,customer,fashion_mnist,svhn
+Bidirectional distillation,0.4814285714285714,0.68,0.708,0.25
+Decision Tree,0.547142857142857,0.685,0.5529999999999999,0.139
+Logistic Regression,0.2299999999999999,0.555,0.618,0.112
+MLP,0.45,0.63,0.536,0.109
+One-to-many distillation,0.4921428571428571,0.6825,0.7,0.258

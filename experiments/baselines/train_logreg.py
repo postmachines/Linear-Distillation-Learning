@@ -60,13 +60,13 @@ def train(model, loss_func, train_loader, epochs, optimizer, lr, batch_size, sil
     return results_data
 
 
-def test(model, test_loader, silent=False, device='cpu', c=1, x_dim=28):
+def test(model, test_loader, silent=False, device='cpu', input_size=None):
     model.eval()
     correct = 0
     with torch.no_grad():
         n = len(test_loader)
         for batch_i, (x, y) in enumerate(test_loader):
-            x = x.view(-1, c*x_dim**2).to(device)
+            x = x.view(-1, input_size).to(device)
             y = y.to(device)
 
             y_score = model(x)
@@ -104,6 +104,7 @@ def run_experiment(config):
     lr = config['lr']
     gpu = config['gpu']
     test_batch = config['test_batch']
+    table_dataset = config['table_dataset']
     #dld = config['dld']
 
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
@@ -115,14 +116,20 @@ def run_experiment(config):
                                      in_alphabet=in_alphabet)
 
     for i_trial in tqdm(range(trials)):
-        model = LogReg(n_classes=way, x_dim=x_dim, c=c)
+        model = LogReg(n_classes=way, x_dim=x_dim, c=c, table_dataset=table_dataset)
         model.to(device)
-
+    
+        if table_dataset:
+            input_size = x_dim
+        else:
+            input_size = c*x_dim**2
+        
         for sample in dataloader:
-            x_train = sample['xs'].reshape((-1, c*x_dim**2))
+
+            x_train = sample['xs'].reshape((-1, input_size))
             y_train = np.asarray(
                 [i // train_shot for i in range(train_shot * way)])
-            x_test = sample['xq'].reshape((-1, c*x_dim**2))
+            x_test = sample['xq'].reshape((-1, input_size))
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
 
@@ -146,7 +153,7 @@ def run_experiment(config):
                                  train_loader=samples_train, epochs=epochs,
                                  batch_size=batch_size, silent=silent,
                                  device=device, trial=i_trial)
-            accs.append(test(model, samples_test, silent=silent, device=device, x_dim=x_dim, c=c))
+            accs.append(test(model, samples_test, silent=silent, device=device, input_size=input_size))
 
     return np.mean(accs)
 
@@ -244,28 +251,123 @@ if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
 
     configs = {
-        'dataset': ['svhn'],
+        'dataset': ['mnist'],
         'epochs': [3, 10],
         'way': [10],
-        'train_shot': [1, 10, 50, 100, 200, 300],
+        'train_shot': [10, 50, 100, 200, 300],
         'test_shot': [1],
-        'x_dim': [32],
+        'x_dim': [28],
         'optimizer': ['adam'],
         'lr': [1e-3, 1e-4, 5e-5],
-        'channels': [3],
+        'channels': [1],
         'loss': [nn.CrossEntropyLoss()],
         'trials': [100],
         'batch_size': [32],
         'silent': [True],
-        'split': ['test'],
+        'split': ['train'],
         'in_alphabet': [False],
         'add_rotations': [True],
-        'gpu': [1],
+        'gpu': [2],
         'test_batch': [2000],
         'full_test': [False],
-        'save_data': [False]
-    }
+        'save_data': [False],
+        'table_dataset': [False]
+    }    
 
+#     configs = {
+#         'dataset': ['svhn'],
+#         'epochs': [3, 10],
+#         'way': [10],
+#         'train_shot': [1, 10, 50, 100, 200, 300],
+#         'test_shot': [1],
+#         'x_dim': [32],
+#         'optimizer': ['adam'],
+#         'lr': [1e-3, 1e-4, 5e-5],
+#         'channels': [3],
+#         'loss': [nn.CrossEntropyLoss()],
+#         'trials': [100],
+#         'batch_size': [32],
+#         'silent': [True],
+#         'split': ['test'],
+#         'in_alphabet': [False],
+#         'add_rotations': [True],
+#         'gpu': [1],
+#         'test_batch': [2000],
+#         'full_test': [False],
+#         'save_data': [False],
+#         'table_dataset': [False]
+#     }
+
+#     configs = {
+#         'dataset': ['customer'],
+#         'epochs': [3, 10],
+#         'way': [2],
+#         'train_shot': [50, 200],
+#         'test_shot': [1],
+#         'x_dim': [41],
+#         'optimizer': ['adam'],
+#         'lr': [1e-3, 1e-4, 5e-5],
+#         'channels': [0],
+#         'loss': [nn.CrossEntropyLoss()],
+#         'trials': [100],
+#         'batch_size': [32],
+#         'silent': [True],
+#         'split': ['train'],
+#         'in_alphabet': [False],
+#         'add_rotations': [True],
+#         'gpu': [3],
+#         'test_batch': [1407],
+#         'full_test': [False],
+#         'save_data': [False],
+#         'table_dataset': [True]
+#     }
+#     configs = {
+#         'dataset': ['covtype'],
+#         'epochs': [3, 10],
+#         'way': [7],
+#         'train_shot': [50, 200],
+#         'test_shot': [1],
+#         'x_dim': [54],
+#         'optimizer': ['adam'],
+#         'lr': [1e-3, 1e-4, 5e-5],
+#         'channels': [0],
+#         'loss': [nn.CrossEntropyLoss()],
+#         'trials': [100],
+#         'batch_size': [32],
+#         'silent': [True],
+#         'split': ['train'],
+#         'in_alphabet': [False],
+#         'add_rotations': [True],
+#         'gpu': [1],
+#         'test_batch': [2000],
+#         'full_test': [False],
+#         'save_data': [False],
+#         'table_dataset': [True]
+#     }
+#     configs = {
+#         'dataset': ['medical'],
+#         'epochs': [3, 10],
+#         'way': [6],
+#         'train_shot': [1000, 10, 50, 100, 200, 300],
+#         'test_shot': [1],
+#         'x_dim': [59],
+#         'optimizer': ['adam'],
+#         'lr': [1e-3, 1e-4, 5e-5],
+#         'channels': [0],
+#         'loss': [nn.CrossEntropyLoss()],
+#         'trials': [100],
+#         'batch_size': [32],
+#         'silent': [True],
+#         'split': ['train'],
+#         'in_alphabet': [False],
+#         'add_rotations': [True],
+#         'gpu': [3],
+#         'test_batch': [2000],
+#         'full_test': [False],
+#         'save_data': [False],
+#         'table_dataset': [True]
+#     }
+    
     if configs['full_test'][0]:
         experiment_func = run_experiment_full_test
     else:

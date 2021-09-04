@@ -8,8 +8,8 @@ from torch import nn
 
 from train import run_experiment
 from train_full_test import run_experiment_full_test
-from train_table_customer import run_experiment as run_experiment_customer
-from train_table_covtype import run_experiment as run_experiment_covtype
+from train_table_dataset import run_experiment as run_experiment_table_ds
+
 
 if __name__ == "__main__":
     print("GPU available: ", torch.cuda.is_available())
@@ -36,39 +36,45 @@ if __name__ == "__main__":
 #         'gpu': [1],
 #         'test_batch': [2000],
 #         'full_test': [False],
-#         'save_data': [False]
+#         'save_data': [False],
+#         'table_dataset': [False]
+
 #     }
-#     configs = {
-#         'dataset': ['svhn'],
-#         'epochs': [3, 10],
-#         'way': [10],
-#         'train_shot': [1, 5, 10, 100,  300],
-#         'test_shot': [1],
-#         'x_dim': [32], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
-#         'z_dim': [1024, 2000],
-#         'dld': [True],
-#         'optimizer': ['adam'],
-#         'lr': [1e-3, 1e-4, 5e-5],
-#         'initialization': ['xavier_normal'],
-#         'channels': [3],
-#         'loss': [nn.MSELoss(reduction='none')],
-#         'trials': [100],
-#         'silent': [False],
-#         'split': ['test'],
-#         'in_alphabet': [False],
-#         'add_rotations': [True],
-#         'gpu': [1],
-#         'test_batch': [2000],
-#         'full_test': [False],
-#         'save_data': [False]
-#     }
+    configs = {
+        'dataset': ['svhn'],
+        'epochs': [3, 10],
+        'way': [10],
+        'train_shot': [200],
+        'test_shot': [1],
+        'x_dim': [32], # ATTENTION: Due to the cached nature of dataloader this parameter should be set in signle value per run
+        'z_dim': [1024, 2000],
+        'dld': [True],
+        'optimizer': ['adam'],
+        'lr': [1e-3, 1e-4, 5e-5],
+        'initialization': ['xavier_normal'],
+        'channels': [3],
+        'loss': [nn.MSELoss(reduction='none')],
+        'trials': [100],
+        'silent': [False],
+        'split': ['test'],
+        'in_alphabet': [False],
+        'add_rotations': [True],
+        'gpu': [0],
+        'test_batch': [2000],
+        'full_test': [False],
+        'save_data': [False],
+        'table_dataset': [False]
+    }
 
 #     configs = {
 #         'dataset': ['customer'],
 #         'epochs': [3, 10],
-#         'train_shot': [1, 5, 10, 100, 300],
-#         'test_shot': [2],
+#         'way': [2],
+#         'train_shot': [1, 50, 10, 100, 200, 300],
+#         'test_shot': [1],
 #         'dld': [True],
+#         'x_dim': [41],
+#         'z_dim': [2000],
 #         'optimizer': ['adam'],
 #         'lr': [1e-2, 1e-3, 1e-4, 5e-5],
 #         'initialization': ['xavier_normal'],
@@ -79,41 +85,70 @@ if __name__ == "__main__":
 #         'gpu': [1],
 #         'test_batch': [1407],
 #         'full_test': [False],
-#         'save_data': [False]
-#     }
-    configs = {
-        'dataset': ['covtype'],
-        'epochs': [3, 10],
-        'way': [7],
-        'train_shot': [1, 5, 10, 100, 300],
-        'test_shot': [2],
-        'dld': [True],
-        'optimizer': ['adam'],
-        'lr': [1e-2, 1e-3, 1e-4, 5e-5],
-        'initialization': ['xavier_normal'],
-        'loss': [nn.MSELoss(reduction='none')],
-        'trials': [100],
-        'silent': [True],
-        'split': ['train'],
-        'gpu': [1],
-        'test_batch': [2000],
-        'full_test': [False],
-        'save_data': [False]
-    }
+#         'save_data': [False],
+#         'table_dataset': [True]
 
+#     }
+#     configs = {
+#         'dataset': ['covtype'],
+#         'epochs': [3, 10],
+#         'way': [7],
+#         'train_shot': [50, 200],
+#         'test_shot': [1],
+#         'dld': [True],
+#         'optimizer': ['adam'],
+#         'x_dim': [54],
+#         'z_dim': [1000, 2000],
+#         'lr': [1e-2, 1e-3, 1e-4, 5e-5],
+#         'initialization': ['xavier_normal'],
+#         'loss': [nn.MSELoss(reduction='none')],
+#         'trials': [100],
+#         'silent': [True],
+#         'split': ['train'],
+#         'gpu': [2],
+#         'test_batch': [2000],
+#         'full_test': [False],
+#         'save_data': [False],
+#         'table_dataset': [True]
+#     }
+#     configs = {
+#         'dataset': ['medical'],
+#         'epochs': [3, 10],
+#         'way': [6],
+#         'train_shot': [300, 1, 5, 10, 100],
+#         'z_dim': [100, 1000],
+#         'test_shot': [1],
+#         'dld': [True],
+#         'optimizer': ['adam'],
+#         'x_dim': [59],
+#         'lr': [1e-2, 1e-3, 1e-4, 5e-5],
+#         'initialization': ['xavier_normal'],
+#         'loss': [nn.MSELoss(reduction='none')],
+#         'trials': [100],
+#         'silent': [True],
+#         'split': ['train'],
+#         'gpu': [0],
+#         'test_batch': [2000],
+#         'full_test': [False],
+#         'save_data': [False],
+#         'table_dataset': [True]
+#     }
 
     ds_name = configs['dataset'][0]
-    if ds_name == 'customer':
-        exp_func = run_experiment_customer
-    elif ds_name == "covtype":
-        exp_func = run_experiment_covtype
-    elif ds_name in ['mnist', 'fashion_mnist', 'svhn', 'omniglot']:
-        if configs['full_test'][0]:
-            exp_func = run_experiment_full_test
+    table_dataset = configs['table_dataset'][0]
+    if table_dataset:        
+        if ds_name in ['customer', 'covtype', 'medical']:
+            exp_func = run_experiment_table_ds
         else:
-            exp_func = run_experiment
+            raise Exception("Unknown dataset!")
     else:
-        raise Exception("Unknown dataset!")
+        if ds_name in ['mnist', 'fashion_mnist', 'svhn', 'omniglot']:
+            if configs['full_test'][0]:
+                exp_func = run_experiment_full_test
+            else:
+                exp_func = run_experiment
+        else:
+            raise Exception("Unknown dataset!")
 
     # Create grid of parameters
     keys, values = zip(*configs.items())

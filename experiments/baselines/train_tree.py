@@ -31,6 +31,8 @@ def run_experiment(config):
     add_rotations = config['add_rotations']
     max_depth = config['max_depth']
     in_alphabet = config['in_alphabet']
+    table_dataset = config['table_dataset']
+
     #dld = config['dld']
 
 
@@ -42,12 +44,15 @@ def run_experiment(config):
 
     for i_trial in tqdm(range(trials)):
         model = DecisionTreeClassifier(max_depth=max_depth, random_state=0)
-
+        if table_dataset:
+            input_size = x_dim
+        else:
+            input_size = c*x_dim**2
         for sample in dataloader:
-            x_train = sample['xs'].reshape((-1, c*x_dim**2))
+            x_train = sample['xs'].reshape((-1, input_size))
             y_train = np.asarray(
                 [i // train_shot for i in range(train_shot * way)])
-            x_test = sample['xq'].reshape((-1, c*x_dim**2))
+            x_test = sample['xq'].reshape((-1, input_size))
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
 
@@ -76,22 +81,76 @@ def run_experiment_full_test(config):
 if __name__ == "__main__":
 
     configs = {
-        'dataset': ['svhn'],
+        'dataset': ['mnist'],
         'way': [10],
-        'train_shot': [1, 10, 50, 100, 200, 300],
+        'train_shot': [10, 50, 100, 200, 300],
         'test_shot': [1],
         'max_depth': [1, 3, 5, 7, 10, 20, 30, 50, 100],
-        'x_dim': [32],
-        'channels': [3],
+        'x_dim': [28],
+        'channels': [1],
         'trials': [100],
         'split': ['test'],
         'in_alphabet': [False],
         'add_rotations': [True],
         'test_batch': [2000],
         'full_test': [False],
-        'save_data': [False]
-    }
+        'save_data': [False],
+        'table_dataset': [False]
 
+    }
+    
+#     configs = {
+#         'dataset': ['svhn'],
+#         'way': [10],
+#         'train_shot': [1, 10, 50, 100, 200, 300],
+#         'test_shot': [1],
+#         'max_depth': [1, 3, 5, 7, 10, 20, 30, 50, 100],
+#         'x_dim': [32],
+#         'channels': [3],
+#         'trials': [100],
+#         'split': ['test'],
+#         'in_alphabet': [False],
+#         'add_rotations': [True],
+#         'test_batch': [2000],
+#         'full_test': [False],
+#         'save_data': [False]
+#     }
+
+#     configs = {
+#         'dataset': ['customer'],
+#         'way': [2],
+#         'train_shot': [1, 10, 50, 100, 200, 300],
+#         'test_shot': [1],
+#         'max_depth': [1, 3, 5, 7, 10, 20, 30, 50, 100],
+#         'x_dim': [41],
+#         'channels': [0],
+#         'trials': [100],
+#         'split': ['train'],
+#         'in_alphabet': [False],
+#         'add_rotations': [True],
+#         'test_batch': [2000],
+#         'full_test': [False],
+#         'save_data': [False],
+#         'table_dataset': [True]
+#     }
+#     configs = {
+#         'dataset': ['covtype'],
+#         'way': [7],
+#         'train_shot': [1, 10, 50, 100, 200, 300],
+#         'test_shot': [1],
+#         'max_depth': [1, 3, 5, 7, 10, 20, 30, 50, 100],
+#         'x_dim': [54],
+#         'channels': [0],
+#         'trials': [100],
+#         'split': ['train'],
+#         'in_alphabet': [False],
+#         'add_rotations': [True],
+#         'test_batch': [2000],
+#         'full_test': [False],
+#         'save_data': [False],
+#         'table_dataset': [True]
+
+#     }
     if configs['full_test'][0]:
         experiment_func = run_experiment_full_test
     else:

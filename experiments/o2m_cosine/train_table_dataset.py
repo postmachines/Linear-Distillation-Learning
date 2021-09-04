@@ -47,7 +47,7 @@ def test(rnd, test_loader, silent=False, device='cpu'):
             if class_min_mse == y.item():
                 correct += 1
         acc = correct / n
-        print(correct, n)
+#         print(correct, n)
         if not silent:
             print('Accuracy: {}/{} ({:.0f}%)\n'.format(correct, n, 100. * acc))
     return acc
@@ -63,6 +63,8 @@ def run_experiment(config):
     way = config['way']
     dataset = config['dataset']
     train_shot = config['train_shot']
+    x_dim = config['x_dim']
+    z_dim = config['z_dim']
     test_shot = config['test_shot']
     mse_loss = config['loss']
     trials = config['trials']
@@ -81,15 +83,15 @@ def run_experiment(config):
     dataloader = get_episodic_loader(dataset, way, train_shot, test_shot, split=split)
 
     for _ in tqdm(range(trials)):
-        model = RNDModel(way, in_dim=54, out_dim=54, opt=optimizer,
+        model = RNDModel(way, in_dim=x_dim, out_dim=z_dim, opt=optimizer,
                          lr=lr, initialization=initialization)#, dld=dld)
         model.to(device)
 
         for sample in dataloader:
-            x_train = sample['xs'].reshape((-1, 54))
+            x_train = sample['xs'].reshape((-1, x_dim))
             y_train = np.asarray(
                 [i // train_shot for i in range(train_shot * way)])
-            x_test = sample['xq'].reshape((-1, 54))
+            x_test = sample['xq'].reshape((-1, x_dim))
             y_test = np.asarray(
                 [i // test_shot for i in range(test_shot * way)])
 
@@ -120,21 +122,21 @@ if __name__ == "__main__":
     torch.manual_seed(2019)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    config = {
-        'dataset': 'mnist',
-        'train_shot': 5,
-        'test_shot': 1,
-        'loss': nn.MSELoss(reduction='none'),
-        'epochs': 1,
-        'trials': 10,
-        'silent': True,
-        'split': 'test',
-        'initialization': 'xavier_normal',
-        'optimizer': 'adam',
-        'lr': 0.001,
-        'channels': 1,
-        'gpu': 1
-    }
+#     config = {
+#         'dataset': 'mnist',
+#         'train_shot': 5,
+#         'test_shot': 1,
+#         'loss': nn.MSELoss(reduction='none'),
+#         'epochs': 1,
+#         'trials': 10,
+#         'silent': True,
+#         'split': 'test',
+#         'initialization': 'xavier_normal',
+#         'optimizer': 'adam',
+#         'lr': 0.001,
+#         'channels': 1,
+#         'gpu': 1
+#     }
 
     mean_accuracy = run_experiment(config)
     print("Mean accuracy: ", mean_accuracy)

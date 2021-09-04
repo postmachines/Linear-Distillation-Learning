@@ -1,0 +1,15 @@
+dataset,epochs,way,train_shot,test_shot,dld,x_dim,z_dim,optimizer,lr,initialization,loss,trials,silent,split,gpu,test_batch,full_test,save_data,table_dataset,accuracy,duration_sec
+customer,3,2,1,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.595,6.755239486694336
+customer,3,2,5,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.655,4.38964581489563
+customer,3,2,50,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.63,28.78571939468384
+customer,3,2,10,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.66,6.6158976554870605
+customer,3,2,100,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.69,53.63220691680908
+customer,3,2,200,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.735,101.25701093673706
+customer,3,2,300,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.7,154.03955006599426
+customer,10,2,1,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.62,3.608962059020996
+customer,10,2,5,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.65,10.187233448028564
+customer,10,2,50,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.655,85.5741696357727
+customer,10,2,10,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.675,17.771852254867554
+customer,10,2,100,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.655,168.84614825248718
+customer,10,2,200,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.675,340.03708958625793
+customer,10,2,300,1,True,41,2000,adam,0.001,xavier_normal,MSELoss(),100,False,train,1,1407,False,False,True,0.72,508.1378664970398
